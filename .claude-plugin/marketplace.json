@@ -1,0 +1,15 @@
+{
+  "name": "ai-dev-team",
+  "owner": {
+    "name": "111vandit111",
+    "email": "vanditkala@gmail.com"
+  },
+  "description": "Token-efficient multi-agent dev team for Claude Code: planner, builders, devops, reviewer, testers and git agents with per-task model selection.",
+  "plugins": [
+    {
+      "name": "ai-dev-team",
+      "source": "./plugins/ai-dev-team",
+      "description": "Multi-agent build pipeline that picks the cheapest capable model per task and uses a knowledge graph to cut token usage"
+    }
+  ]
+}

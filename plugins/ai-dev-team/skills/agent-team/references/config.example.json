@@ -1,0 +1,21 @@
+{
+  "platform": "claude-code",
+  "models": {
+    "planner": "sonnet",
+    "builder-low": "haiku",
+    "builder-mid": "sonnet",
+    "builder-high": "opus",
+    "devops": "haiku",
+    "reviewer": "sonnet",
+    "tester": "sonnet",
+    "git": "haiku"
+  },
+  "commands": {
+    "install": "",
+    "build": "",
+    "typecheck": "",
+    "lint": "",
+    "test": ""
+  },
+  "maxRetries": 2
+}
