@@ -27,4 +27,4 @@ Models: Flash-Lite, Flash, Pro (check `/model`). Thinking budget maps roughly lo
 Use the model picker list; map efforts to the tool's reasoning setting if it has one, otherwise ignore effort.
 
 ## Running without subagents
-Run each role yourself, one at a time: planner → builders (task by task) → devops → reviewer → tester → commit message. Before each role, read `roles/<role>.md` and the "Rules for every role" section of `agents/worker-low.md`. Use the same `.agent-team/` files. Switch model per role if the platform allows; otherwise tell the user once that every role uses the current model.
+Run each role yourself, one at a time: planner → builders (task by task) → build/lint checks → verifier (or reviewer → tester) → commit message. Before each role, read `roles/<role>.md` and the "Rules for every role" section of `agents/worker-low.md`. Use the same `.agent-team/` files. Switch model per role if the platform allows; otherwise tell the user once that every role uses the current model.

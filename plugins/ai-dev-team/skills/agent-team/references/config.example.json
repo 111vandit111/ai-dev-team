@@ -1,23 +1,60 @@
 {
-  "version": 2,
+  "version": 3,
   "platform": "claude-code",
   "allowed": {
-    "models": ["haiku", "sonnet", "opus", "fable"],
-    "efforts": ["low", "medium", "high", "xhigh", "max"]
+    "models": [
+      "haiku",
+      "sonnet",
+      "opus",
+      "fable"
+    ],
+    "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ]
   },
   "roles": {
-    "planner":       { "model": "sonnet", "effort": "high" },
-    "devops":        { "model": "haiku",  "effort": "low" },
-    "reviewer":      { "model": "sonnet", "effort": "medium" },
-    "tester":        { "model": "sonnet", "effort": "medium" },
-    "commit-writer": { "model": "haiku",  "effort": "low" }
+    "planner": {
+      "model": "sonnet",
+      "effort": "high"
+    },
+    "verifier": {
+      "model": "sonnet",
+      "effort": "medium"
+    },
+    "reviewer": {
+      "model": "sonnet",
+      "effort": "medium"
+    },
+    "tester": {
+      "model": "sonnet",
+      "effort": "medium"
+    }
   },
   "presets": {
-    "trivial": { "model": "haiku",  "effort": "low" },
-    "normal":  { "model": "sonnet", "effort": "medium" },
-    "tricky":  { "model": "sonnet", "effort": "high" },
-    "complex": { "model": "opus",   "effort": "high" },
-    "hardest": { "model": "opus",   "effort": "max" }
+    "trivial": {
+      "model": "haiku",
+      "effort": "low"
+    },
+    "normal": {
+      "model": "sonnet",
+      "effort": "medium"
+    },
+    "tricky": {
+      "model": "sonnet",
+      "effort": "high"
+    },
+    "complex": {
+      "model": "opus",
+      "effort": "high"
+    },
+    "hardest": {
+      "model": "opus",
+      "effort": "max"
+    }
   },
   "commands": {
     "install": "",

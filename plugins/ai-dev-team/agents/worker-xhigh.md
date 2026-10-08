@@ -1,6 +1,6 @@
 ---
 name: worker-xhigh
-description: Agent-team worker running at xhigh effort. Takes any role (planner, builder, devops, reviewer, tester) from a role file named in its prompt; the model is chosen per call. Used by the agent-team skill.
+description: Agent-team worker running at xhigh effort. Takes any role (planner, builder, verifier, reviewer, tester) from a role file named in its prompt; the model is chosen per call. Used by the agent-team skill.
 tools: Read, Edit, Write, Bash, Grep, Glob
 effort: xhigh
 maxTurns: 60

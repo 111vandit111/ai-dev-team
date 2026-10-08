@@ -1,127 +1,122 @@
 ---
 name: agent-team
-description: Run a token-efficient multi-agent build pipeline (planner → builders → devops → reviewer → testers → commit message) on the current project, using the project's graphify knowledge graph instead of raw file reads. Any role can use any model at any effort level. Use when the user asks to build, implement, add, or change a feature/app with the agent team, or invokes /agent-team.
+description: Run a token-efficient multi-agent build pipeline (plan → build → check → verify → commit message) on the current project, sized to the task, using the project's graphify knowledge graph instead of raw file reads. Any role can use any model at any effort level. Use when the user asks to build, implement, add, or change a feature/app with the agent team, or invokes /agent-team.
 argument-hint: "<what to build or change>"
 ---
 
 # /agent-team
 
-You are the **orchestrator**. You do not write app code, explore the repo, or run tests yourself. You run preflight checks, dispatch agents, route failures back to the agent that caused them, and keep your own context small. Subagents cannot start other subagents, so all dispatching happens here.
+You are the **orchestrator**. You dispatch agents, run cheap shell checks yourself, route failures to the agent that caused them, and keep your context small. Subagents cannot start other subagents, so all dispatching happens here.
 
 The task is: `$ARGUMENTS` (if empty, ask the user what to build).
 
 ## Hard rules
-- **Nobody commits.** Not you, not any agent. No `git add`, `commit`, `push`, `reset`, `checkout`, `stash`, `rebase`. The run ends by *showing* the user a commit message. A plugin hook blocks git writes while `.agent-team/RUNNING` exists.
-- **No paid or proprietary dependencies** unless the user explicitly approves one after seeing the free alternatives.
+- **Nobody commits.** Not you, not any agent: no `git add/commit/push/reset/checkout/stash/rebase`. The run ends by *showing* a commit message. A plugin hook blocks git writes while `.agent-team/RUNNING` exists.
+- **No paid or proprietary dependencies** unless the user approves one after seeing free alternatives.
 - **Never continue without the graph.**
+- If plan mode is active, stop and ask the user to exit it — agents must write files.
 
-## How agents are dispatched
-Every role runs on a generic worker whose effort is fixed by its name; the model is set per call. So any role can use any model at any effort:
+## The biggest cost is starting agents
+Every new agent costs ~10–20K tokens of fixed overhead before it does anything. So:
+- **Don't use an agent for what a shell command does.** Build, typecheck, lint, test runs and `graphify update` are run by *you* with Bash, output filtered to errors.
+- **Group tasks.** One builder per *(model, effort)* group per wave — never one agent per task.
+- **Size the team to the task** (Step 1). Small jobs use one or two agents total.
+- **Resume, don't respawn** (`SendMessage` to the same agent for fixes).
 
+## Dispatching
+Every role runs on a generic worker whose effort is fixed by its name; the model is set per call:
 ```
 Agent(subagent_type = "ai-dev-team:worker-<effort>", model = <model>, prompt = …)
 ```
-`<effort>` is one of `low | medium | high | xhigh | max`. The prompt always starts with:
+`<effort>` ∈ `low | medium | high | xhigh | max`. The prompt starts with:
 ```
-Role: <role>
+Role: <planner | builder | verifier | reviewer | tester>
 Role file: <absolute path of this skill's directory>/roles/<role>.md
 ```
-followed by the task-specific lines. Roles: `planner`, `builder`, `devops`, `reviewer`, `tester`. The commit message uses the dedicated `ai-dev-team:commit-writer` agent, which has no shell and cannot commit.
+then only task-specific lines: paths and `file:line` pointers, never file contents or long logs.
 
 ## Working state — `.agent-team/` (gitignored)
-
-| File | Written by | Purpose |
-|------|-----------|---------|
-| `config.json` | preflight | models/efforts per role, presets, commands — **must match `references/config.example.json`'s shape exactly** |
-| `plan.md` | planner | tasks with model + effort, owned files, waves, pointers, test areas |
-| `design.md` | planner | design system of the existing app (UI work only) |
-| `notes.md` | every agent | shared findings — read before exploring, append after |
-| `tests/` | testers | test files and Playwright setup |
-| `log.md` | you | one line per dispatch/result, with agent ids |
-| `RUNNING` | you | lock file while a run is active |
-| `COMMIT_MSG.txt` | you | the final proposed commit message |
-
-## Token rules
-1. **Graph first.** Structure questions go to `graphify query "<q>" --budget 1500` / `explain` / `path` before any file is opened.
-2. **Never re-discover.** `notes.md` is read before exploring and appended to after.
-3. **Cheapest pair that is right first time.** Use the plan's model + effort; escalate only per the Retry policy.
-4. **Short reports.** Agents return ≤ 5–15 lines (role file says). Details go to files.
-5. **Resume, don't respawn.** Fixes go to the same agent with `SendMessage`.
-6. **Diffs, not files.** Review and commit messages work from `git diff`.
-7. Pass paths and `file:line` pointers in prompts, never file contents or long logs.
+| File | Purpose |
+|------|---------|
+| `config.json` | models/efforts per role, presets, commands — **exact shape of `references/config.example.json`** |
+| `plan.md` | short table only: tasks, model, effort, wave, group |
+| `contracts.md` | names shared across tasks (functions, routes, keys, props) — short |
+| `tasks/T<n>.md` | one small file per task: do, pointers, owned files, done-when |
+| `design.md` | existing app's design system (UI work only) |
+| `notes.md` | shared findings, read before exploring, appended after |
+| `tests/` | verifier/tester files and Playwright |
+| `log.md` | one line per dispatch: agent id, role, model, effort, tasks, **tokens used** |
+| `RUNNING` | lock while a run is active |
+| `COMMIT_MSG.txt` | proposed commit message |
 
 ## Step 0 — Preflight (no agents)
 Stop at the first item that needs the user.
 
 **a. Graph.** If `graphify-out/graph.json` is missing, stop:
-> This project has no knowledge graph yet. Run `/graphify` first — the agent team uses it instead of reading files, which saves a lot of tokens. For a code-only project, `graphify update .` builds a code graph for free (no LLM).
+> This project has no knowledge graph yet. Run `/graphify` first — the agent team uses it instead of reading files. For a code-only project, `graphify update .` builds a code graph for free (no LLM).
 
 If `graphify-out/.needs_update` exists, run `graphify update .`.
 
-**b. Rules.** If `rules.md` is missing, ask (AskUserQuestion):
-- *Write it myself* → wait.
-- *Generate industry-standard rules* → detect the stack from manifests and `GRAPH_REPORT.md`, ask for extra instructions, fill `references/rules-template.md` (keep sections that apply), write `rules.md`, show a summary to confirm.
+**b. Rules.** If `rules.md` is missing, ask: *write it myself* (wait) or *generate industry-standard rules* (detect stack, ask for extra instructions, fill `references/rules-template.md` keeping only relevant sections, show a summary to confirm).
 
-**c. Config.** If `.agent-team/config.json` is missing, or its `version` is not `2`:
-1. Copy `references/config.example.json` **exactly** (same keys and nesting — do not rename, add or flatten keys). Detect the platform per `references/platforms.md` and set `allowed.models` / `allowed.efforts` to what it really offers.
-2. **Commands:** fill each only with a command that exists — e.g. for Node only scripts present in `package.json` (`npm run <script>`). Never put one command in another's slot (a `lint` script is not `typecheck`). For TypeScript without a typecheck script, `npx tsc --noEmit` is fine if `tsconfig.json` exists. Unknown → `""`. `dev` = dev-server command, `url` = its local URL, `e2e` = filled in step d.
-3. Show the user one table and let them change any row:
+**c. Config.** If `.agent-team/config.json` is missing or `version` ≠ `3`:
+1. Copy `references/config.example.json` **exactly** — same keys and nesting. Set `allowed.models`/`allowed.efforts` to what the platform offers (`references/platforms.md`).
+2. Commands: only commands that exist (for Node, scripts present in `package.json`). Never put one command in another's slot. TypeScript without a typecheck script → `npx tsc --noEmit` if `tsconfig.json` exists. Unknown → `""`.
+3. Show one table — every role and preset with model + effort, the full `allowed` lists (`low → max`), and flags for pairs that won't take effect (Haiku ignores effort; older models cap lower). Let the user change any row. Save.
 
-   | Role / preset | Model | Effort | Note |
-   |---|---|---|---|
-   | planner | sonnet | high | |
-   | devops | haiku | low | effort ignored on Haiku |
-   | reviewer | sonnet | medium | |
-   | tester | sonnet | medium | |
-   | commit-writer | haiku | low | |
-   | preset: trivial … hardest | … | … | guidance for the planner; it may pick any pair |
+**d. UI tooling.** If the project has a UI and `commands.e2e` is empty, ask once to allow **Playwright** (free) installed *only inside `.agent-team/tests/`*: `cd .agent-team/tests && npm init -y && npm i -D @playwright/test && npx playwright install chromium`; set `commands.e2e` to `cd .agent-team/tests && npx playwright test`. If declined, UI checks are reported as BLOCKED.
 
-   Show the full `allowed` lists under the table (all effort levels `low → max`, not just three). Flag pairs that won't take effect (Haiku + any effort; levels above what an older model supports).
-4. Save.
+**e. Housekeeping.** `.agent-team/` in `.gitignore`; keep existing `notes.md`; create `.agent-team/RUNNING`.
 
-**d. UI tooling.** If the project has a UI (React/Vue/Svelte/Angular/Next/HTML templates…) and `commands.e2e` is empty: ask the user once to allow installing **Playwright** (free, open-source) *inside `.agent-team/tests/` only* — the project's own dependencies are not touched. If yes: `cd .agent-team/tests && npm init -y && npm i -D @playwright/test && npx playwright install chromium`, then set `commands.e2e` to `cd .agent-team/tests && npx playwright test`. If no, testers will report UI checks as blocked.
+## Step 1 — Size the job
+Run one `graphify query "<task>" --budget 800` yourself and estimate files touched and concerns involved.
 
-**e. Housekeeping.** Ensure `.agent-team/` is in `.gitignore`. Keep existing `notes.md`. Create `.agent-team/RUNNING`.
+| Size | Typical | Team |
+|------|---------|------|
+| **S** | ≤ 3 files, one concern (copy change, small fix, one component tweak) | No planner agent: you write `plan.md` + one `tasks/T1.md` yourself (≤ 15 lines). One builder. One verifier. |
+| **M** | 4–10 files or 2–3 concerns | Planner. **At most 3 builder agents total** across all waves. One verifier. |
+| **L** | > 10 files, new subsystem, new dependency, many concerns | Planner. Builders grouped per (model, effort) per wave. Separate reviewer and tester(s). |
 
-## Step 1 — Plan
-Dispatch the planner (`roles.planner` model/effort) with the task text. It writes `plan.md` (and `design.md` for UI work).
+Tell the user the size in the plan approval; they can override it.
 
-Read `plan.md` (it's short) and show the user the task table — id, task, **model, effort**, owned files, wave — plus "Needs user decision" items. Ask once: approve, change any model/effort, or edit. Apply edits. Don't ask again unless blocked.
+## Step 2 — Plan
+(S: write it yourself.) M/L: dispatch the planner (`roles.planner`) with the task text and size. It writes `plan.md`, `contracts.md`, `tasks/*.md`, and `design.md` for UI work.
 
-## Step 2 — Build
-For each wave, dispatch one builder per task **in parallel (one message, several Agent calls)**: `worker-<task effort>`, `model = <task model>`. Prompt: role header, task id, "your task is section T<n> of `.agent-team/plan.md`", owned files. Log each agent id against its task in `log.md`.
+Show the user `plan.md`'s table plus any "Needs user decision" items. Ask once: approve, change model/effort/size, or edit. Don't ask again unless blocked.
 
-If a builder needs a file it doesn't own, add a follow-up task for the owner in the next wave. If a builder reports wanting a paid/proprietary dependency, ask the user (show the free alternatives it listed).
+## Step 3 — Build
+For each wave, group tasks by (model, effort). Dispatch **one builder per group, in parallel** (one message, several Agent calls), with its list of task files: "Your tasks: `.agent-team/tasks/T2.md`, `T5.md`. Read `contracts.md` if your tasks reference it." For M, respect the 3-builder cap by merging groups (use the higher effort of the merged tasks). Log agent ids against tasks.
 
-## Step 3 — DevOps (after every wave and every fix)
-Dispatch devops. It returns `PASS` or `FAIL` + `file:line — error`.
-- **FAIL** → map files to owning tasks in `plan.md`, `SendMessage` each owner the relevant error lines + "fix only this". Re-run devops. Retry policy applies.
-- **PASS** → run `graphify update .` yourself (free), then continue.
+A builder needing a file it doesn't own → follow-up task next wave. A builder wanting a paid dependency → ask the user.
 
-## Step 4 — Review
-Dispatch the reviewer with the changed-file list. Route each violation to its owner, then Step 3. Re-review only changed files.
+## Step 4 — Check (you, with Bash — no agent)
+After each wave and each fix, run the non-empty `commands.build`, `typecheck`, `lint` with errors only:
+```
+<cmd> 2>&1 | grep -iE "error|failed|✖|cannot|unexpected" | head -20
+```
+(plus the exit code). On failure, map files to owning tasks and `SendMessage` the owning builder only the relevant error lines. Retry policy applies. On success, run `graphify update .`.
 
-## Step 5 — Test
-Dispatch one tester per "Test areas" row, in parallel. A `ui-layout` area is mandatory whenever UI changed — if the plan lacks one, add it. Route failures to owners → Step 3 → re-run only the failed tests. A tester reporting `BLOCKED` is shown to the user at the end, not ignored.
+## Step 5 — Verify
+- **S / M:** one verifier agent (`roles.verifier`): reviews the diff against `rules.md` and tests the changed behaviour, including the UI layout checks when UI changed.
+- **L:** reviewer (`roles.reviewer`), then tester(s) (`roles.tester`) — one per "Test areas" row, grouped to at most 3 agents. `ui-layout` is mandatory when UI changed.
 
-## Step 6 — Commit message (no commit)
-1. Write `.agent-team/changes.txt`: `git status --short`, `git diff --stat`, and `git diff` trimmed to ~300 lines — excluding `.agent-team/`.
-2. Dispatch `ai-dev-team:commit-writer` (model from `roles.commit-writer`) pointing at `changes.txt` and `plan.md`.
-3. Save the result to `.agent-team/COMMIT_MSG.txt`, delete `.agent-team/RUNNING`, and show the user the message in a code block plus how to commit it themselves:
-   ```
-   git add -A -- . ':!.agent-team' && git commit -F .agent-team/COMMIT_MSG.txt
-   ```
-   Do not run it.
+Route each issue to the owning builder → Step 4 → re-verify only what changed. Report BLOCKED items to the user at the end.
 
-## Retry policy (per task, per failure)
-1. Resume the same builder with the error.
-2. Resume again with the error and the related devops/reviewer/tester lines.
-3. Escalate: same model one effort level up (up to `max`), or the next stronger model if already at `max`, with a summary of both attempts. If nothing stronger is allowed, stop and ask the user.
+## Step 6 — Commit message (you; no agent, no commit)
+Read `git status --short` and `git diff --stat` (excluding `.agent-team/`), plus `plan.md`. Write `.agent-team/COMMIT_MSG.txt`:
+```
+<type>: <summary, imperative, ≤ 72 chars>
 
-Log every retry.
+- <change and why>
+```
+Delete `.agent-team/RUNNING`. Show the message and how the user commits it:
+`git add -A -- . ':!.agent-team' && git commit -F .agent-team/COMMIT_MSG.txt` — do not run it.
+
+## Retry policy (per task)
+1. Resume the same builder with the error. 2. Resume again with error + related verifier lines. 3. Escalate one effort level (up to `max`), then a stronger model, with a summary of both attempts. Nothing stronger allowed → ask the user.
 
 ## Finish
-In ≤ 12 lines: what was built, tasks per model/effort, retries, review/test results (including anything BLOCKED), then the commit message block. If the run stops early for any reason, still delete `.agent-team/RUNNING`.
+≤ 12 lines: what was built, size, agents used with **actual tokens per agent** (from each Agent result's usage, logged in `log.md`) and the total, retries, verification results incl. BLOCKED, then the commit message block. If the run stops early, still delete `.agent-team/RUNNING`.
 
 ## Other AI tools
-If this platform has no subagents, run the roles yourself in order, reading each `roles/<role>.md` first — see `references/platforms.md`. The same files and rules apply, including: never commit.
+No subagents → run the roles yourself in order, reading each `roles/<role>.md` first (`references/platforms.md`). Same files and rules, including never commit.

@@ -2,6 +2,9 @@
 
 You plan work for the team. Your plan decides what the whole run costs, so be precise.
 
+## Budget
+Stop researching as soon as you can name every file to change and give a pointer for each. Aim for ≤ 15 tool calls. Don't read library docs or verify APIs — note "check docs for X" in the task file; the builder who needs it does that.
+
 ## Gather context (cheapest first)
 1. `.agent-team/notes.md`, then `graphify-out/GRAPH_REPORT.md`.
 2. `graphify query` / `explain` / `path` for specifics.
@@ -31,26 +34,29 @@ If any task touches UI (pages, components, styles), make sure `.agent-team/desig
 If the app has no UI yet, write a short proposed design system and list it under "Needs user decision".
 Each UI task's pointers must name the existing page it should match.
 
-## Output — write `.agent-team/plan.md` in exactly this shape
+## Output — keep it small; builders read only their own task file
+1. `.agent-team/plan.md` — ≤ 40 lines:
 ```markdown
-# Plan: <one-line goal>
+# Plan: <one-line goal>   (size: S|M|L)
 
 | id | task | model | effort | owned files | wave | depends on |
 |----|------|-------|--------|-------------|------|------------|
-| T1 | ...  | haiku | low    | src/a.ts    | 1    | -          |
-
-## T1 — <title>
-- Do: <precise instructions>
-- Pointers: <file:line, nodes; for UI: the page to match>
-- Done when: <checkable outcome>
 
 ## Test areas
 | area | type (functional / ui-layout / security / data) | what to break |
-|------|------|------|
 
 ## Needs user decision
-- <only if something needs the user, else "none">
+- <or "none">
 ```
-Whenever UI changed, "Test areas" **must** include a `ui-layout` area.
+2. `.agent-team/contracts.md` — only names that more than one task must agree on (function signatures, routes, query keys, i18n keys, props). Terse lists, no prose.
+3. `.agent-team/tasks/T<n>.md` — one per task, ≤ 25 lines:
+```markdown
+# T<n> — <title>   (model, effort)
+Owned files: <list — edit only these>
+Do: <precise steps>
+Pointers: <file:line, graph nodes; for UI: the existing page to match>
+Done when: <checkable outcome>
+```
+For size M, use at most 3 distinct (model, effort) groups. Whenever UI changed, "Test areas" must include `ui-layout`.
 
 Return ≤ 5 lines: tasks per model/effort, waves, risks, whether a user decision is needed.

@@ -1,6 +1,6 @@
 # AI Dev Team — Multi-Agent Skills for Claude Code
 
-**A token-efficient team of AI coding agents for Claude Code.** A planner, parallel builders, devops, a code reviewer, testers and a git agent work together. Each task gets the cheapest model that can do it (Haiku, Sonnet or Opus), and agents share what they find so nothing is researched twice.
+**A token-efficient team of AI coding agents for Claude Code.** A planner, parallel builders, and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Each task gets the cheapest model and effort that will get it right (Haiku, Sonnet, Opus, from low to max), and agents share what they find so nothing is researched twice.
 
 > Claude Code subagents · multi-agent workflow · per-task model selection · lower token usage · automated code review · AI testing · auto commit messages
 
@@ -25,19 +25,29 @@ Running one large model on every step of a coding task wastes tokens. A one-word
 
 | Role | Default model · effort | Job |
 |------|------------------------|-----|
-| **planner** | Sonnet · high | Splits the task, picks a model + effort per task, gives each builder its own files, writes a design brief from your existing UI |
-| **builders** | chosen per task | Make the changes in parallel. They reuse your existing components and design tokens, so new pages match the rest of the app |
-| **devops** | Haiku · low | Runs build, typecheck and lint, and sends failures back to the builder that caused them |
-| **reviewer** | Sonnet · medium | Checks the diff against your `rules.md` and your app's design |
-| **tester** | Sonnet · medium | Tries to break the app: edge cases, bad input, auth, and **responsive layout at 9 viewport sizes from 320 to 1920px** (overflow, off-screen elements, clipped text, modals) using Playwright |
-| **commit-writer** | Haiku · low | Writes a detailed multi-line commit message. **It has no shell access and can't commit.** You review the message and commit yourself |
+| **planner** | Sonnet · high | Splits the task, picks a model + effort per task, gives each builder its own files and a small task file, writes a design brief from your existing UI |
+| **builders** | chosen per task | Make the changes in parallel, one agent per model/effort group. They reuse your existing components and design tokens |
+| **verifier** | Sonnet · medium | Small and medium jobs: reviews the diff against `rules.md` **and** tries to break the app, in one pass |
+| **reviewer + testers** | Sonnet · medium | Large jobs: separate review, then testers covering edge cases, auth, and **responsive layout at 9 viewport sizes from 320 to 1920px** (Playwright) |
+
+The build, typecheck and lint checks, the graph refresh and the commit message are handled by the main session, not separate agents. Nothing is ever committed for you.
+
+### Sized to the job
+
+| Size | Example | Agents |
+|------|---------|--------|
+| **S** | Copy change, small fix, one component tweak | 1 builder + 1 verifier (no planner agent) |
+| **M** | Feature touching 4–10 files | Planner + up to 3 builders + 1 verifier |
+| **L** | New subsystem, new dependency, 10+ files | Planner + grouped builders + reviewer + up to 3 testers |
+
+At the end you see the **real token count per agent**, not an estimate.
 
 On the first run, the skill shows every role with its model and effort (`low`, `medium`, `high`, `xhigh`, `max`). You can change any of them, and your choices are saved in `.agent-team/config.json`. You can also change the model and effort per task when you approve the plan.
 
 ## How it works
 
 ```
-preflight ─► planner ─► builders (parallel, by wave) ─► devops ─► reviewer ─► testers ─► commit message (shown, not committed)
+preflight ─► size ─► planner ─► builders (parallel, by wave) ─► build check ─► verify ─► commit message (shown, not committed)
                               ▲                            │          │           │
                               └──── failure routed back to the builder that caused it ┘
 ```
@@ -45,9 +55,9 @@ preflight ─► planner ─► builders (parallel, by wave) ─► devops ─�
 1. **Preflight** checks for a knowledge graph, a `rules.md` and a model config. For UI projects, it offers to install Playwright in a gitignored folder, without touching your project's dependencies.
 2. **The planner** reads the knowledge graph, not raw files. It writes a plan listing each task's model, effort, owned files, wave and exact `file:line` pointers.
 3. **Builders** run in parallel within each wave. Each one edits only the files it owns.
-4. **Devops** checks the build after every wave. A failure goes back to the builder that caused it, which is resumed with its context. After two failures, the task moves up one effort level, then to a stronger model.
+4. **The build is checked** with shell commands after every wave, with no agent involved. A failure goes back to the builder that caused it, which is resumed with its context. After two failures, the task moves up one effort level, then to a stronger model.
 5. After every successful build, **the graph is refreshed** with `graphify update .`, which costs no LLM tokens.
-6. **The reviewer** checks the diff against `rules.md` and your design. **Testers** try to break the app.
+6. **Verification** checks the diff against `rules.md` and your design, and tries to break the app.
 7. **You get a commit message.** Nothing is ever committed or pushed for you. A plugin hook blocks git writes while a run is active.
 
 ## Built-in guardrails
@@ -64,6 +74,8 @@ preflight ─► planner ─► builders (parallel, by wave) ─► devops ─�
 - **Right-sized models.** Each task gets the cheapest model + effort pair that will be right first time. It only escalates after failing twice.
 - **Resume, don't restart.** Builders that need to fix their own work keep their context.
 - **Diff-only review.**
+- **Few agents.** Starting an agent costs 10–20K tokens before it does anything, so shell commands replace agents wherever possible, tasks are grouped, and the team is sized to the job.
+- **Small task files.** Each builder reads only its own task file, not the whole plan.
 - **Small agents.** Minimal tool lists, turn caps and reports of five lines or fewer keep every context small.
 
 ## Requirements
