@@ -1,21 +1,33 @@
 {
+  "version": 2,
   "platform": "claude-code",
-  "models": {
-    "planner": "sonnet",
-    "builder-low": "haiku",
-    "builder-mid": "sonnet",
-    "builder-high": "opus",
-    "devops": "haiku",
-    "reviewer": "sonnet",
-    "tester": "sonnet",
-    "git": "haiku"
+  "allowed": {
+    "models": ["haiku", "sonnet", "opus", "fable"],
+    "efforts": ["low", "medium", "high", "xhigh", "max"]
+  },
+  "roles": {
+    "planner":       { "model": "sonnet", "effort": "high" },
+    "devops":        { "model": "haiku",  "effort": "low" },
+    "reviewer":      { "model": "sonnet", "effort": "medium" },
+    "tester":        { "model": "sonnet", "effort": "medium" },
+    "commit-writer": { "model": "haiku",  "effort": "low" }
+  },
+  "presets": {
+    "trivial": { "model": "haiku",  "effort": "low" },
+    "normal":  { "model": "sonnet", "effort": "medium" },
+    "tricky":  { "model": "sonnet", "effort": "high" },
+    "complex": { "model": "opus",   "effort": "high" },
+    "hardest": { "model": "opus",   "effort": "max" }
   },
   "commands": {
     "install": "",
     "build": "",
     "typecheck": "",
     "lint": "",
-    "test": ""
+    "test": "",
+    "dev": "",
+    "url": "",
+    "e2e": ""
   },
   "maxRetries": 2
 }

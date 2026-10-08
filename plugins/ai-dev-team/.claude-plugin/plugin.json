@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-team",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Multi-agent build pipeline that picks the cheapest capable model per task and uses a knowledge graph to cut token usage",
   "author": {
     "name": "111vandit111",

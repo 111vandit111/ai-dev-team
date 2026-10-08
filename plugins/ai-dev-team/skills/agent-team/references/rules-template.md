@@ -17,7 +17,7 @@ Template for the agent-team skill. When generating a project's rules.md:
 3. No dead code, commented-out code, debug prints, or `TODO` without an owner/issue.
 4. No magic numbers or strings — use named constants or config.
 5. Names describe intent: no single-letter names outside short loops; booleans read as `is/has/should`.
-6. Do not add a dependency without a clear need; prefer what the project already uses.
+6. Dependencies, in order of preference: what the project already uses → the standard library → free open-source (MIT/Apache/BSD), actively maintained. **No paid or proprietary libraries or services** without explicit user approval.
 
 ## Correctness and errors
 7. Validate all external input (user input, API responses, files, env vars) at the boundary.
@@ -47,6 +47,13 @@ Template for the agent-team skill. When generating a project's rules.md:
 ## Go
 24. Check every returned error; wrap with `fmt.Errorf("...: %w", err)`.
 25. Pass `context.Context` as the first parameter for I/O; no goroutine without a way to stop it.
+
+## UI and design consistency
+D1. New pages and components reuse the existing layout shell, components and design tokens (colors, fonts, spacing, radii, breakpoints). No new hard-coded colors or sizes where a token exists.
+D2. Every page works from 320px to 1920px wide: no horizontal scroll, nothing outside the viewport, long text wraps, media scales.
+D3. Modals, menus and dropdowns stay inside the viewport and scroll when taller than it.
+D4. Tap targets are at least 44×44px on mobile; focus is visible; colour contrast meets WCAG AA.
+D5. Every data view has loading, empty and error states in the app's existing style.
 
 ## APIs and data
 26. Consistent response/error shape across endpoints; correct HTTP status codes.
