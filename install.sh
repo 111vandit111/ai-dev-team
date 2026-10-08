@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Installs the agent-team skill for your AI coding tools.
+#
+#   ./install.sh               ~/.agents/skills: read by Codex, Gemini CLI, Cursor,
+#                              OpenCode, GitHub Copilot and other Agent Skills tools
+#   ./install.sh --project     ./.agents/skills in the current project instead
+#   ./install.sh --dir PATH    any other skills folder (e.g. ~/.kiro/skills)
+#   ./install.sh --claude      also install the Claude Code plugin (needs the claude CLI)
+#   ./install.sh --link        symlink instead of copying (for development)
+#   ./install.sh --uninstall   remove it (use the same location flags)
+#
+# From anywhere, without cloning:
+#   curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/install.sh | bash
+
+set -euo pipefail
+
+REPO_URL="https://github.com/111vandit111/ai-dev-team"
+SKILL="agent-team"
+SKILL_PATH="plugins/ai-dev-team/skills/$SKILL"
+
+target="$HOME/.agents/skills"
+link=0
+uninstall=0
+claude=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project) target="$PWD/.agents/skills" ;;
+    --dir) shift; target="${1:?--dir needs a path}" ;;
+    --link) link=1 ;;
+    --claude) claude=1 ;;
+    --uninstall) uninstall=1 ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "install.sh: unknown option $1 (try --help)" >&2; exit 64 ;;
+  esac
+  shift
+done
+
+dest="$target/$SKILL"
+
+is_ours() {
+  [ -L "$1" ] || grep -qs "^name: $SKILL\$" "$1/SKILL.md"
+}
+
+if [ "$uninstall" = 1 ]; then
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    is_ours "$dest" || { echo "install.sh: $dest isn't agent-team; left alone" >&2; exit 1; }
+    rm -rf "$dest"
+    echo "Removed $dest"
+  else
+    echo "Nothing installed at $dest"
+  fi
+  if [ "$claude" = 1 ] && command -v claude >/dev/null 2>&1; then
+    claude plugin uninstall ai-dev-team@ai-dev-team || true
+  fi
+  exit 0
+fi
+
+# Use the copy next to this script when there is one; otherwise fetch the repository.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+if [ -n "$script_dir" ] && [ -f "$script_dir/$SKILL_PATH/SKILL.md" ]; then
+  src="$script_dir/$SKILL_PATH"
+else
+  home="${AI_DEV_TEAM_HOME:-$HOME/.ai-dev-team}"
+  command -v git >/dev/null 2>&1 || { echo "install.sh: git is required" >&2; exit 1; }
+  if [ -d "$home/.git" ]; then
+    git -C "$home" pull --ff-only --quiet
+  else
+    git clone --depth 1 --quiet "$REPO_URL" "$home"
+  fi
+  src="$home/$SKILL_PATH"
+fi
+
+if [ -e "$dest" ] || [ -L "$dest" ]; then
+  is_ours "$dest" || { echo "install.sh: $dest exists and isn't agent-team; left alone" >&2; exit 1; }
+  rm -rf "$dest"
+fi
+mkdir -p "$target"
+if [ "$link" = 1 ]; then
+  ln -s "$src" "$dest"
+  echo "Linked $dest -> $src"
+else
+  cp -R "$src" "$dest"
+  echo "Installed $dest"
+fi
+
+if [ "$target" = "$HOME/.agents/skills" ]; then
+  echo "Codex, Gemini CLI, Cursor, OpenCode and GitHub Copilot will find it there."
+fi
+
+if [ -e "$HOME/.claude/skills/$SKILL" ] && [ "$target" != "$HOME/.claude/skills" ]; then
+  echo "Note: ~/.claude/skills/$SKILL also exists. Cursor, OpenCode and Copilot read both folders and will list the skill twice; remove one copy." >&2
+fi
+
+if [ "$claude" = 1 ]; then
+  command -v claude >/dev/null 2>&1 || { echo "install.sh: the claude CLI isn't installed" >&2; exit 1; }
+  claude plugin marketplace add 111vandit111/ai-dev-team
+  claude plugin install ai-dev-team@ai-dev-team
+elif command -v claude >/dev/null 2>&1; then
+  echo "Claude Code found: add --claude to also install the plugin (effort-level workers, live office pane, git-write block)."
+fi
+
+command -v graphify >/dev/null 2>&1 || echo "Next: install graphify (pip install graphifyy); the team needs a knowledge graph of your project."
+echo "Restart your AI tool, then ask it to build something. The skill starts on its own."

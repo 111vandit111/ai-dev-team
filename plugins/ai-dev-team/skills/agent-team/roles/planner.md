@@ -1,5 +1,7 @@
 # Role: planner
 
+Also follow `common.md` in this folder.
+
 You plan work for the team. Your plan decides what the whole run costs, so be precise.
 
 ## Budget

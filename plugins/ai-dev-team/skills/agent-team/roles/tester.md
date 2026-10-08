@@ -1,5 +1,7 @@
 # Role: tester
 
+Also follow `common.md` in this folder.
+
 You try to break the app in your assigned area. **You never edit app code.** Your tests live only in `.agent-team/tests/<area>/` (gitignored).
 
 1. Read your area in `.agent-team/plan.md` → "Test areas". Find the code with `graphify query`; open only what you test.

@@ -1,151 +1,155 @@
-# AI Dev Team — Multi-Agent Skills for Claude Code
+# AI Dev Team: a multi-agent skill for any AI coding agent
 
-**A token-efficient team of AI coding agents for Claude Code.** A planner, parallel builders, and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Each task gets the cheapest model and effort that will get it right (Haiku, Sonnet, Opus, from low to max), and agents share what they find so nothing is researched twice.
+**A token-efficient team of AI coding agents** for Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and any tool that supports [Agent Skills](https://agentskills.io).
 
-> Claude Code subagents · multi-agent workflow · per-task model selection · lower token usage · automated code review · AI testing · auto commit messages
+A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
+
+> multi-agent workflow · sub-agents · per-task model selection · lower token usage · automated code review · AI testing · commit messages · Agent Skills · AGENTS.md
 
 ## Install
 
-In Claude Code:
+**Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and other Agent Skills tools.** One command installs to `~/.agents/skills`, which all of them read:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/install.sh | bash
+```
+
+**Claude Code.** Install as a plugin. It adds effort-level workers, a live office pane and a git-write block:
 
 ```
 /plugin marketplace add 111vandit111/ai-dev-team
 /plugin install ai-dev-team@ai-dev-team
 ```
 
-Then just ask for what you want in any project. The skill starts by itself for build, add, fix and change requests:
+Other options (`./install.sh --help`): `--project` installs into this project's `.agents/skills`, `--dir PATH` installs into any skills folder (for example `~/.kiro/skills`), `--claude` also installs the Claude Code plugin, `--link` symlinks for development, and `--uninstall` removes it.
+
+Then ask your AI tool for what you want. The skill starts on its own for build, add, fix and change requests:
 
 ```
 add a dark-mode toggle to the settings page
 ```
 
-Or run it explicitly with `/ai-dev-team:agent-team <task>`. Tiny edits, like a one-line copy change, are made directly with no agents, because starting an agent would cost more than the edit.
+## Your models, not ours
 
-## Why use it
+Nothing is hard-coded. On the first run in a project, the skill builds your model list from your own tool:
 
-Running one large model on every step of a coding task wastes tokens. A one-word text change doesn't need Opus. AI Dev Team splits the work, and **each task gets its own model and effort level**. You can use any model with any effort, from Haiku at low to Opus at `max`.
+1. It looks for your models where it can: your tool's sub-agent model options, or a list command such as `opencode models` or `agent --list-models`.
+2. It shows you what it found and asks you to check it against your model picker (`/model` or `/models`), or to paste the list if it found nothing.
+3. It shows a table that works like a model picker. Every role and task tier gets a model and an effort level from your lists, and you can change any row:
 
-| Role | Default model · effort | Job |
-|------|------------------------|-----|
-| **planner** | Sonnet · high | Splits the task, picks a model + effort per task, gives each builder its own files and a small task file, writes a design brief from your existing UI |
-| **builders** | chosen per task | Make the changes in parallel, one agent per model/effort group. They reuse your existing components and design tokens |
-| **verifier** | Sonnet · medium | Small and medium jobs: reviews the diff against `rules.md` **and** tries to break the app, in one pass |
-| **reviewer + testers** | Sonnet · medium | Large jobs: separate review, then testers covering edge cases, auth, and **responsive layout at 9 viewport sizes from 320 to 1920px** (Playwright) |
+| Row | Default | Used for |
+|-----|---------|----------|
+| trivial | cheapest model · lowest effort | text, copy, config, renames |
+| normal | mid model · medium effort | normal features and fixes |
+| tricky | mid model · high effort | tricky logic in one place |
+| complex | strongest model · high effort | interdependent logic, security, migrations |
+| hardest | strongest model · top effort | deep reasoning |
+| planner | mid model · high effort | splits the task, picks a model and effort per task |
+| verifier / reviewer / tester | mid model · medium effort | review against your `rules.md`, and trying to break the app |
 
-The build, typecheck and lint checks, the graph refresh and the commit message are handled by the main session, not separate agents. Nothing is ever committed for you.
-
-### Sized to the job
-
-| Size | Example | Agents |
-|------|---------|--------|
-| **S** | Copy change, small fix, one component tweak | 1 builder + 1 verifier (no planner agent) |
-| **M** | Feature touching 4–10 files | Planner + up to 3 builders + 1 verifier |
-| **L** | New subsystem, new dependency, 10+ files | Planner + grouped builders + reviewer + up to 3 testers |
-
-At the end you see the **real token count per agent**, not an estimate.
-
-On the first run, the skill shows every role with its model and effort (`low`, `medium`, `high`, `xhigh`, `max`). You can change any of them, and your choices are saved in `.agent-team/config.json`. You can also change the model and effort per task when you approve the plan.
+Your choices are saved in `.agent-team/config.json`. You can also save them as your default for new projects, and change the model or effort of any task when you approve the plan.
 
 ## How it works
 
 ```
-preflight ─► size ─► planner ─► builders (parallel, by wave) ─► build check ─► verify ─► commit message (shown, not committed)
-                              ▲                            │          │           │
-                              └──── failure routed back to the builder that caused it ┘
+preflight ─► size ─► plan ─► builders (parallel, by wave) ─► build check ─► verify ─► commit message (shown, never committed)
+                               ▲                                 │              │
+                               └──── each failure goes back to the builder that caused it
 ```
 
-1. **Preflight** checks for a knowledge graph, a `rules.md` and a model config. For UI projects, it offers to install Playwright in a gitignored folder, without touching your project's dependencies.
-2. **The planner** reads the knowledge graph, not raw files. It writes a plan listing each task's model, effort, owned files, wave and exact `file:line` pointers.
-3. **Builders** run in parallel within each wave. Each one edits only the files it owns.
-4. **The build is checked** with shell commands after every wave, with no agent involved. A failure goes back to the builder that caused it, which is resumed with its context. After two failures, the task moves up one effort level, then to a stronger model.
-5. After every successful build, **the graph is refreshed** with `graphify update .`, which costs no LLM tokens.
-6. **Verification** checks the diff against `rules.md` and your design, and tries to break the app.
-7. **You get a commit message.** Nothing is ever committed or pushed for you. A plugin hook blocks git writes while a run is active.
+1. **Preflight** checks for a knowledge graph, a `rules.md` and your model setup. It asks you before continuing if anything is missing.
+2. **The job is sized.** Tiny edits use no sub-agents at all. Small jobs use one builder and one verifier. Big jobs get the full team.
+3. **The planner** reads the knowledge graph, not raw files. It writes one small task file per task, with exact `file:line` pointers, owned files and the model and effort to use.
+4. **Builders** run in parallel, one per model/effort group, and each edits only the files it owns.
+5. **The build is checked** with shell commands after every wave, with no agent involved. A failure goes to the builder that caused it, and moves up one effort level, then to a stronger model, only after failing twice.
+6. **Verification** reviews the diff against `rules.md` and your design, and tries to break the app, including **responsive layout at 9 screen widths** from 320 to 1920 px with Playwright.
+7. **You get a commit message.** Nothing is ever committed or pushed for you.
 
-## Live agent office
+### How sub-agents start in your tool
 
-While the team works, you can watch it. Every agent is a little person at a desk, and the main agent sits at the center desk. It appears **by itself**, costs **no tokens**, and **never pauses the agents**.
+| Tool | Sub-agents | Model per task |
+|------|-----------|----------------|
+| Claude Code | native (plugin workers) | ✓ model and effort |
+| Codex | native (spawned `worker` agents), or `codex exec` | ✓ model and reasoning effort |
+| Gemini CLI | headless `gemini -m … -p …`, or one agent file per model | ✓ model |
+| OpenCode | `mode: subagent` agents, or `opencode run -m …` | ✓ model |
+| GitHub Copilot CLI | custom agents with `model` and `reasoning-effort` | ✓ model and effort |
+| Cursor | Cursor CLI `agent -p --model …`; in the editor, roles run one after another | ✓ with the CLI |
+| Anything else | its sub-agent feature or headless mode if it has one; otherwise one after another | depends on the tool |
 
-**Above the prompt** (every terminal, any width), a small band appears as soon as the first agent starts:
-
-```
- o   _       o   _      o   ____    o/  _
-/|\_|=|     /|_/|-|     /|\_|====|  /|  |v|
-builder     builder 2   main agent  planner
->Edit 8.2k  >Bash 3.1k  waiting     ok 14.1k
-  office: 2 working · 1 done · 25.4k tok · main: waiting for team
-```
-
-**As a side panel** (Claude Code's fullscreen layout), the office docks beside the transcript with bigger desks:
-
-```
-╭──────────────────────╮╭──────────────────────╮
-│ o   .----.           ││ o/  .----.           │
-│/|\_ |=== |           ││/|   | ok |           │
-│/ \  '----'           ││/ \  '----'           │
-│builder               ││planner               │
-│sonnet · medium       ││sonnet · high         │
-│> Edit · 8.2k tok     ││done · 14.1k tok      │
-╰──────────────────────╯╰──────────────────────╯
-        ╔════════════════════════════╗
-        ║ o   .----.                 ║
-        ║/|_/ |==  |                 ║
-        ║/ \  '----'                 ║
-        ║main agent                  ║
-        ║waiting for team            ║
-        ║2 working · 1 done          ║
-        ║team: 25.4k tok             ║
-        ╚════════════════════════════╝
-```
-
-- Each desk shows the agent's role, model and effort, the tool it's using right now, and its **real** token count.
-- Desks are yellow while working, green when done, and red when failed.
-- The side panel opens by itself from 144 columns wide, or from 110 once you've opened it yourself. Elsewhere, the band shows the office instead.
-- `/office` makes it bigger: the side panel in fullscreen layout, big desks in the band otherwise. `/office auto` goes back to the small band, `/office off` hides it, and `/office clear` empties it. These commands run instantly, even mid-run, without interrupting anything.
-- **Don't press Esc to close the panel while agents are running.** In Claude Code, Esc interrupts the current turn. Close the panel with `ctrl+x x` or `/office off`.
-- It's drawn by plugin hooks from Claude Code's own events, with no model calls. It needs a Claude Code version that supports plugin panes; on older versions the rest of the plugin works without it.
-
-## Built-in guardrails
-
-- **No paid libraries.** The order of preference is: what the project already uses, then the standard library, then free open-source. A paid option is only ever presented to you as a decision, next to the free alternatives.
-- **Consistent design.** New UI has to match your existing pages, components and design tokens.
-- **No commits.** Committing is up to you.
+Headless runs edit files without asking each time, so the skill asks for your OK first and uses the narrowest permission flags. Details are in [`references/platforms/`](plugins/ai-dev-team/skills/agent-team/references/platforms).
 
 ## How it saves tokens
 
-- **Knowledge graph first.** Agents query a [graphify](https://github.com/Graphify-Labs/graphify) graph of your codebase instead of reading files.
+- **Knowledge graph first.** Agents query a [graphify](https://github.com/Graphify-Labs/graphify) graph of your code instead of reading files.
+- **Fewer sub-agents.** Each one costs thousands of tokens before it does anything, so shell commands replace agents wherever possible, tasks are grouped, and the team is sized to the job.
 - **Shared notes.** Every agent reads `.agent-team/notes.md` before exploring and adds what it found.
-- **Exact pointers.** The planner gives builders `file:line` locations, so they don't need to search.
-- **Right-sized models.** Each task gets the cheapest model + effort pair that will be right first time. It only escalates after failing twice.
-- **Resume, don't restart.** Builders that need to fix their own work keep their context.
-- **Diff-only review.**
-- **Few agents.** Starting an agent costs 10–20K tokens before it does anything, so shell commands replace agents wherever possible, tasks are grouped, and the team is sized to the job.
 - **Small task files.** Each builder reads only its own task file, not the whole plan.
-- **Small agents.** Minimal tool lists, turn caps and reports of five lines or fewer keep every context small.
+- **Right-sized models.** Each task gets the cheapest model and effort that will be right first time.
+- **Resume, don't restart.** Builders fix their own work with their context kept, where your tool allows it.
+- **Diff-only review**, and short reports from every agent.
+- **First-run setup lives in its own file**, so normal runs never read it.
+
+## Guardrails
+
+- **Nothing gets committed.** An optional git guard makes git itself refuse commits and pushes while a run is active, whichever AI tool is running. The Claude Code plugin also blocks git writes with a hook.
+- **No paid libraries.** The order of preference is what the project already uses, then the standard library, then free open-source. A paid option only ever reaches you as a question, next to the free alternatives.
+- **Consistent design.** New UI has to match your existing pages, components and design tokens.
+
+## Watch the team work
+
+**In any tool**, open a second terminal in your project:
+
+```bash
+python3 ~/.agents/skills/agent-team/scripts/office.py
+```
+
+Every agent is a person at a desk, and the main agent sits at the center desk. Each desk shows the agent's role, model, effort, status and tokens. The viewer reads the team's log file, so it costs no tokens.
+
+```
+        ╭──────────────────────╮ ╭──────────────────────╮
+        │  o/  .----.          │ │  o   .----.          │
+        │ /|   | ok |          │ │ /|\_ |=== |          │
+        │ / \  '----'          │ │ / \  '----'          │
+        │ planner A1           │ │ builder A2           │
+        │ mid-model · high     │ │ cheap-model · low    │
+        │ done · 14.1k tok     │ │ working · - tok      │
+        ╰──────────────────────╯ ╰──────────────────────╯
+                  ╔══════════════════════════════╗
+                  ║  o   .----.                  ║
+                  ║ /|_/ |==  |                  ║
+                  ║ / \  '----'                  ║
+                  ║ main agent                   ║
+                  ║ Step 3 build, wave 1         ║
+                  ║ 1 working · 1 done           ║
+                  ║ team: 14.1k tok              ║
+                  ╚══════════════════════════════╝
+```
+
+**In Claude Code**, the plugin also draws the office inside Claude Code itself: a band above the prompt, or a side panel in the fullscreen layout. It shows each agent's current tool and real token counts. Use `/office` to make it bigger, and `/office off` to hide it.
 
 ## Requirements
 
-- [Claude Code](https://claude.com/claude-code)
-- **graphify**: `pip install graphifyy`, then run `/graphify` once in your project. The skill asks you to do this if the graph is missing.
+- An AI coding tool (any of the ones above)
+- **graphify**: `pip install graphifyy`, then build the graph with `graphify update .` (code only, free) or your tool's graphify skill
+- **git**, and **Python 3** for the office viewer
 - **`rules.md`** in your project root. If it's missing, the skill offers to generate an industry-standard one for your stack, including your own instructions.
-
-## Other AI coding tools
-
-`SKILL.md` uses the open Agent Skills format, so it also loads in other tools that support skills, such as Codex CLI, Gemini CLI and Cursor. On first run the skill lists that tool's models for you to map. On tools without subagents, the roles run one after another using the same files. You still get the token savings, but not the parallelism. See [`platforms.md`](plugins/ai-dev-team/skills/agent-team/references/platforms.md).
 
 ## FAQ
 
 **Does it commit or push?** No. It shows you a commit message and saves it to `.agent-team/COMMIT_MSG.txt`. You commit with `git commit -F .agent-team/COMMIT_MSG.txt`.
 
-**Are the test files committed?** No. They live in `.agent-team/tests/`, which is added to `.gitignore`.
+**Are test files committed?** No. They live in `.agent-team/tests/`, which is added to `.gitignore`.
 
-**Can I change which model does what?** Yes, any role or task can use any model at any effort. Edit `.agent-team/config.json`, or change the plan table before the build starts. (Haiku doesn't support effort levels, so effort has no effect on it.)
+**My tool has no sub-agents. Does it still work?** Yes. The roles run one after another in the same session, with the same files and token rules. You lose parallel work and per-task models, nothing else.
 
-**Can I use just the skill, without the agents?** Copy `plugins/ai-dev-team/skills/agent-team` into `~/.claude/skills/`. The agents come with the plugin install, so install the plugin to get the full team.
+**How do I make it my tool's default?** Each [platform file](plugins/ai-dev-team/skills/agent-team/references/platforms) gives the one line to add to your tool's instructions file (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md` or a Cursor rule).
+
+**Where are the instructions?** [`SKILL.md`](plugins/ai-dev-team/skills/agent-team/SKILL.md) holds the main run, and `roles/` holds what each agent follows.
 
 ## Contributing
 
-Issues and pull requests are welcome. If you find this useful, a ⭐ helps other people find it.
+Issues and pull requests are welcome, especially platform notes for more AI tools. If you find this useful, a ⭐ helps other people find it.
 
 ## License
 

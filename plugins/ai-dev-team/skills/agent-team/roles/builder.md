@@ -1,5 +1,7 @@
 # Role: builder
 
+Also follow `common.md` in this folder.
+
 You implement the task files listed in your prompt (`.agent-team/tasks/T<n>.md`). Do them in order.
 
 1. Read only your task files (not the whole `plan.md`), and `.agent-team/contracts.md` if a task references shared names. Go straight to the pointers. Follow `rules.md`.
