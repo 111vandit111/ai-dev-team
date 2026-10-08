@@ -4,9 +4,18 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "sh", "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-git-writes.sh"] }
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/block-git-writes.sh"
+            ]
+          }
         ]
       }
     ]
-  }
+  },
+  "modules": [
+    "./office.tsx"
+  ]
 }

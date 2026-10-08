@@ -60,6 +60,35 @@ preflight ─► size ─► planner ─► builders (parallel, by wave) ─► 
 6. **Verification** checks the diff against `rules.md` and your design, and tries to break the app.
 7. **You get a commit message.** Nothing is ever committed or pushed for you. A plugin hook blocks git writes while a run is active.
 
+## Live agent office
+
+While the team works, a side pane shows the office. Every agent is a person at a desk, and the main agent sits at the center desk:
+
+```
+╭──────────────────────╮╭──────────────────────╮
+│ o   .----.           ││ o/  .----.           │
+│/|\_ |=== |           ││/|   | ok |           │
+│/ \  '----'           ││/ \  '----'           │
+│builder               ││planner               │
+│sonnet · medium       ││sonnet · high         │
+│> Edit · 8.2k tok     ││done · 14.1k tok      │
+╰──────────────────────╯╰──────────────────────╯
+        ╔════════════════════════════╗
+        ║ o   .----.                 ║
+        ║/|_/ |==  |                 ║
+        ║/ \  '----'                 ║
+        ║main agent                  ║
+        ║> Agent                     ║
+        ║1 working · 1 done          ║
+        ║team: 22.3k tok             ║
+        ╚════════════════════════════╝
+```
+
+- Each desk shows the agent's role, model and effort, the tool it's using right now, and its **real** token count.
+- Desks are yellow while working, green when done, and red when failed.
+- The pane opens by itself when the first agent starts, if the terminal is at least 144 columns wide. Otherwise, type `/office` to open it, or `/office clear` to empty it.
+- **It costs no tokens.** The pane is drawn by plugin hooks from Claude Code's own events, with no model calls. It needs a Claude Code version that supports plugin panes; on older versions the rest of the plugin works without it.
+
 ## Built-in guardrails
 
 - **No paid libraries.** The order of preference is: what the project already uses, then the standard library, then free open-source. A paid option is only ever presented to you as a decision, next to the free alternatives.
