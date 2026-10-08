@@ -13,11 +13,13 @@ In Claude Code:
 /plugin install ai-dev-team@ai-dev-team
 ```
 
-Then, in any project:
+Then just ask for what you want in any project. The skill starts by itself for build, add, fix and change requests:
 
 ```
-/agent-team add a dark-mode toggle to the settings page
+add a dark-mode toggle to the settings page
 ```
+
+Or run it explicitly with `/ai-dev-team:agent-team <task>`. Tiny edits, like a one-line copy change, are made directly with no agents, because starting an agent would cost more than the edit.
 
 ## Why use it
 
@@ -62,7 +64,19 @@ preflight ─► size ─► planner ─► builders (parallel, by wave) ─► 
 
 ## Live agent office
 
-While the team works, a side pane shows the office. Every agent is a person at a desk, and the main agent sits at the center desk:
+While the team works, you can watch it. Every agent is a little person at a desk, and the main agent sits at the center desk. It appears **by itself**, costs **no tokens**, and **never pauses the agents**.
+
+**Above the prompt** (every terminal, any width), a small band appears as soon as the first agent starts:
+
+```
+ o   _       o   _      o   ____    o/  _
+/|\_|=|     /|_/|-|     /|\_|====|  /|  |v|
+builder     builder 2   main agent  planner
+>Edit 8.2k  >Bash 3.1k  waiting     ok 14.1k
+  office: 2 working · 1 done · 25.4k tok · main: waiting for team
+```
+
+**As a side panel** (Claude Code's fullscreen layout), the office docks beside the transcript with bigger desks:
 
 ```
 ╭──────────────────────╮╭──────────────────────╮
@@ -78,16 +92,18 @@ While the team works, a side pane shows the office. Every agent is a person at a
         ║/|_/ |==  |                 ║
         ║/ \  '----'                 ║
         ║main agent                  ║
-        ║> Agent                     ║
-        ║1 working · 1 done          ║
-        ║team: 22.3k tok             ║
+        ║waiting for team            ║
+        ║2 working · 1 done          ║
+        ║team: 25.4k tok             ║
         ╚════════════════════════════╝
 ```
 
 - Each desk shows the agent's role, model and effort, the tool it's using right now, and its **real** token count.
 - Desks are yellow while working, green when done, and red when failed.
-- The pane opens by itself when the first agent starts, if the terminal is at least 144 columns wide. Otherwise, type `/office` to open it, or `/office clear` to empty it.
-- **It costs no tokens.** The pane is drawn by plugin hooks from Claude Code's own events, with no model calls. It needs a Claude Code version that supports plugin panes; on older versions the rest of the plugin works without it.
+- The side panel opens by itself from 144 columns wide, or from 110 once you've opened it yourself. Elsewhere, the band shows the office instead.
+- `/office` makes it bigger: the side panel in fullscreen layout, big desks in the band otherwise. `/office auto` goes back to the small band, `/office off` hides it, and `/office clear` empties it. These commands run instantly, even mid-run, without interrupting anything.
+- **Don't press Esc to close the panel while agents are running.** In Claude Code, Esc interrupts the current turn. Close the panel with `ctrl+x x` or `/office off`.
+- It's drawn by plugin hooks from Claude Code's own events, with no model calls. It needs a Claude Code version that supports plugin panes; on older versions the rest of the plugin works without it.
 
 ## Built-in guardrails
 

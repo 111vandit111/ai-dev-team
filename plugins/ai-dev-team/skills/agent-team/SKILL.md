@@ -1,6 +1,7 @@
 ---
 name: agent-team
-description: Run a token-efficient multi-agent build pipeline (plan → build → check → verify → commit message) on the current project, sized to the task, using the project's graphify knowledge graph instead of raw file reads. Any role can use any model at any effort level. Use when the user asks to build, implement, add, or change a feature/app with the agent team, or invokes /agent-team.
+description: Default way to build or change code in a project. Plans the work and runs a token-efficient team of agents (builders, then a verifier or reviewer and testers) sized to the task, using the project's graphify knowledge graph instead of reading files, with any model at any effort per task. Use for any request to build, add, implement, fix, refactor, update or change features, pages, components, APIs or app code, even when the user doesn't mention agents, and when the user invokes /agent-team.
+when_to_use: "Trigger on requests like: build X, create a page/feature/component/endpoint, add Y to Z, implement, fix this bug, refactor, change or update the UI, wire up, migrate, make it work. Do not trigger for questions, explanations, code review only, or reading/searching code without changing it."
 argument-hint: "<what to build or change>"
 ---
 
@@ -73,6 +74,7 @@ Run one `graphify query "<task>" --budget 800` yourself and estimate files touch
 
 | Size | Typical | Team |
 |------|---------|------|
+| **XS** | one file, trivial: a text/copy change, a constant, a class name, a one-line fix | **No agents** — starting one costs more than the edit. Make the edit yourself, run Step 4's check, then Step 6. Skip XS only if the user asked for the team. |
 | **S** | ≤ 3 files, one concern (copy change, small fix, one component tweak) | No planner agent: you write `plan.md` + one `tasks/T1.md` yourself (≤ 15 lines). One builder. One verifier. |
 | **M** | 4–10 files or 2–3 concerns | Planner. **At most 3 builder agents total** across all waves. One verifier. |
 | **L** | > 10 files, new subsystem, new dependency, many concerns | Planner. Builders grouped per (model, effort) per wave. Separate reviewer and tester(s). |
