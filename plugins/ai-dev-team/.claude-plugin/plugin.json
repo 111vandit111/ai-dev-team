@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-team",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Multi-agent build pipeline and research skill for any AI coding agent: per-task models from your own list, knowledge-graph context, sourced research, live office view",
   "author": {
     "name": "111vandit111",
