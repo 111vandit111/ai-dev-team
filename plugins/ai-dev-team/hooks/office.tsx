@@ -11,10 +11,12 @@ import type { Desk, Office, OfficeView } from '../types'
 // everything asynchronous: it publishes that memory for drawing, opens the side
 // pane and animates the desks.
 //
-// The office opens when the agent-team skill starts. It shows as a band above the
-// prompt, and as a side pane only in the fullscreen layout, where the pane docks
-// beside the transcript. It never opens a pane inline on its own: dismissing an
-// inline pane with Esc during a run would interrupt the turn and stop every agent.
+// The office opens when a run starts: the agent-team skill, a sub-agent spawned with a
+// `Role:` line, or a .agent-team/RUNNING lock. The last run stays in the pane until the
+// next run starts. It shows as a band above the prompt, and as a side pane only in the
+// fullscreen layout, where the pane docks beside the transcript. It never opens a pane
+// inline on its own: dismissing an inline pane with Esc during a run would interrupt the
+// turn and stop every agent.
 
 const PANE = 'agent-office'
 const TITLE = 'Agent office'
@@ -23,10 +25,12 @@ const BIG_DESK = 24
 const MINI_DESK = 12
 const LEAD_DESK = 15
 const BAND_ROWS = 5
+// Without a known run, look for the RUNNING lock every this many ticks (about 2s).
+const RUNNING_PROBE_TICKS = 5
 
 const EMPTY: Office = {
   desks: [],
-  lead: { isWorking: false, tool: '', tokens: 0 },
+  lead: { isWorking: false, tool: '', tokens: 0, sessionTokens: 0 },
   view: 'auto',
   isActive: false,
   isRunning: false,
@@ -62,6 +66,7 @@ let version = 0
 let published = -1
 let wantsPane = false
 let wantsRunningCheck = false
+let quietTicks = 0
 let isFullscreen = false
 let projectDir = ''
 
@@ -76,8 +81,10 @@ const clip = (text: string, width: number) => (text.length > width ? text.slice(
 const colorFor = (status: string) => (status === 'working' ? 'yellow' : status === 'done' ? 'green' : 'red')
 const isBusy = (o: Office) => o.lead.isWorking || o.desks.some(desk => desk.status === 'working')
 
+const ROLE_LINE = /^\s*Role:\s*([\w-]+)/m
+const hasRoleLine = (prompt: string) => ROLE_LINE.test(prompt)
 const roleOf = (prompt: string, subagentType: string) =>
-  prompt.match(/^\s*Role:\s*([\w-]+)/m)?.[1] ?? subagentType.split(':').pop() ?? 'agent'
+  prompt.match(ROLE_LINE)?.[1] ?? subagentType.split(':').pop() ?? 'agent'
 
 const effortOf = (subagentType: string) => subagentType.match(/worker-(\w+)/)?.[1] ?? '-'
 
@@ -91,9 +98,22 @@ const spentOf = (usage?: {
     ? usage.input_tokens + usage.output_tokens + usage.cache_read_input_tokens + usage.cache_creation_input_tokens
     : 0
 
-function startRun() {
-  wantsPane = true
-  change({ ...EMPTY, view: 'full', isActive: true, isRunning: true, lead: { isWorking: true, tool: 'agent-team', tokens: 0 } })
+// The only place that clears the desks and run tokens. The session total and a hidden office stay.
+function startRun(isLeadWorking: boolean) {
+  const isOff = model.view === 'off'
+  wantsPane = !isOff
+  change({
+    ...EMPTY,
+    view: isOff ? 'off' : 'full',
+    isActive: true,
+    isRunning: true,
+    lead: {
+      ...EMPTY.lead,
+      isWorking: isLeadWorking,
+      tool: isLeadWorking ? 'agent-team' : '',
+      sessionTokens: model.lead.sessionTokens,
+    },
+  })
 }
 
 function addDesk(e: AgentSpawnInput, started: { agentId?: string; model?: string }) {
@@ -132,6 +152,17 @@ async function tick($: EngineInterface) {
     const isRunning = await $.fs.exists(`${projectDir}/.agent-team/RUNNING`).catch(() => model.isRunning)
     if (isRunning !== model.isRunning) change({ ...model, isRunning })
   }
+  if (model.isRunning) {
+    quietTicks = 0
+  } else if (projectDir) {
+    // A team started without the skill event leaves only its lock to find.
+    const isDue = quietTicks % RUNNING_PROBE_TICKS === 0
+    quietTicks += 1
+    if (isDue) {
+      const isLocked = await $.fs.exists(`${projectDir}/.agent-team/RUNNING`).catch(() => false)
+      if (isLocked && !model.isRunning) startRun(false)
+    }
+  }
   if (isBusy(model)) change({ ...model, frame: (model.frame + 1) % 2 })
   if (version !== published) {
     const target = version
@@ -152,7 +183,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     projectDir = e.cwd
     // A reload keeps the published office; pick it up again.
-    model = (await read($, office)) ?? EMPTY
+    const saved = await read($, office)
+    model = saved ? { ...saved, lead: { ...EMPTY.lead, ...saved.lead } } : EMPTY
     await $.command.register({
       name: 'office',
       description: 'Agent office: /office (bigger), /office auto, /office off, /office clear',
@@ -167,7 +199,7 @@ export const register: Register = on => {
 
   // The agent-team skill starting opens the office, as /office would.
   on('skill.prompt', async ($, e, next) => {
-    if (/(^|:)agent-team$/.test(e.skill)) startRun()
+    if (/(^|:)agent-team$/.test(e.skill)) startRun(true)
     return next(e)
   })
 
@@ -201,6 +233,8 @@ export const register: Register = on => {
     if (started.agentId) {
       // The agent is already running: nothing here may fail the hook.
       try {
+        // A spawn with a Role: line is the team working, whether or not the skill event came.
+        if (hasRoleLine(e.prompt) && !model.isRunning) startRun(true)
         addDesk(e, started)
       } catch {
         // The office is decoration; a missed desk is fine.
@@ -218,10 +252,10 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // A new prompt the person typed after a finished run starts a fresh, hidden office.
+  // A prompt the person typed after a finished run takes the band down; the pane keeps the last run.
   on('prompt.submit', async ($, e, next) => {
     const isTyped = e.origin.kind === 'composer' && !e.text.trimStart().startsWith('/')
-    if (isTyped && !model.isRunning && !isBusy(model)) change({ ...EMPTY, view: model.view === 'off' ? 'off' : 'auto' })
+    if (isTyped && model.isActive && !model.isRunning && !isBusy(model)) change({ ...model, isActive: false })
     return next(e)
   })
 
@@ -233,7 +267,16 @@ export const register: Register = on => {
     } else {
       // Whether the run is over is known once its RUNNING lock is gone.
       if (model.isActive) wantsRunningCheck = true
-      change({ ...model, lead: { isWorking: false, tool: '', tokens: model.lead.tokens + (model.isActive ? spent : 0) } })
+      const { lead } = model
+      change({
+        ...model,
+        lead: {
+          isWorking: false,
+          tool: '',
+          tokens: lead.tokens + (model.isActive ? spent : 0),
+          sessionTokens: lead.sessionTokens + spent,
+        },
+      })
     }
     return next(e)
   })
@@ -247,7 +290,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     isFullscreen = e.viewport?.isFullscreen === true
     const shown = await read($, office)
-    const isVisible = shown.isActive || shown.desks.length > 0
+    const isVisible = shown.isActive || shown.desks.some(desk => desk.status === 'working')
     if (e.props.hasSurvey || shown.view === 'off' || !isVisible) return next(e)
     // The docked side pane already shows the office.
     if (await isPaneShown($)) return next(e)
@@ -277,9 +320,9 @@ function counts(o: Office) {
 function summaryLine({ Text }, o: Office) {
   const { working, done, failed, team } = counts(o)
   return (
-    <Text dimColor>
-      office: {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''} · team {formatTokens(team)} tok · main:{' '}
-      {leadDoing(o)}
+    <Text dimColor wrap="truncate-end">
+      office: {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''} · {formatTokens(team)} tok
+      (session {formatTokens(o.lead.sessionTokens)}) · main: {leadDoing(o)}
     </Text>
   )
 }
@@ -382,6 +425,7 @@ function bigOffice(parts, o: Office, columns: number) {
             <Text color="magenta">{line}</Text>
           ))}
           <Text bold>main agent · {formatTokens(o.lead.tokens)} tok</Text>
+          <Text dimColor>{clip(`session: ${formatTokens(o.lead.sessionTokens)} tok`, BIG_DESK + 4)}</Text>
           <Text dimColor>{clip(leadDoing(o), BIG_DESK + 4)}</Text>
           <Text>
             {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''}
@@ -392,7 +436,7 @@ function bigOffice(parts, o: Office, columns: number) {
       {rows(o.desks.slice(half))}
       {o.desks.length === 0 && (
         <Box justifyContent="center">
-          <Text dimColor>No agents yet. They appear here when the team starts.</Text>
+          <Text dimColor>No run yet. Agents appear here when the team starts.</Text>
         </Box>
       )}
     </Box>
