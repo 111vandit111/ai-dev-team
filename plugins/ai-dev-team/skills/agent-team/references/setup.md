@@ -52,7 +52,7 @@ Then ask once: "Save this as your default for new projects?" If yes, also write 
 
 ## 5. Commands
 
-Fill `commands` only with commands that exist, such as scripts present in `package.json` (`npm run <script>`). Never put one command in another's slot: a `lint` script is not `typecheck`. For TypeScript without a typecheck script, `npx tsc --noEmit` is fine if `tsconfig.json` exists. Unknown → `""`. `dev` is the dev-server command, `url` its local address, and `e2e` is set in step 7.
+Fill `commands` only with commands that exist, such as scripts present in `package.json` (`npm run <script>`). Never put one command in another's slot: a `lint` script is not `typecheck`. For TypeScript without a typecheck script, `npx tsc --noEmit` is fine if `tsconfig.json` exists. Unknown → `""`. `dev` is the dev-server command, `url` its local address, and `e2e` is set in step 7. `migrate` applies migrations: set it only to a command that targets a local/test database, never production. `apiUrl` is the base URL of the running backend.
 
 ## 6. Git guard
 
@@ -67,6 +67,10 @@ cd .agent-team/tests && npm init -y && npm i -D @playwright/test && npx playwrig
 ```
 
 Then set `commands.e2e` to `cd .agent-team/tests && npx playwright test`. If they decline, UI checks are reported as BLOCKED.
+
+## 7b. Backend tooling
+
+If the project has a backend, check that `commands.test` runs its tests and how to start it (`commands.dev`). If integration tests need a database, ask once whether a local/test database is available (for example a docker compose service already in the repo, or sqlite). Never create cloud resources. If there is none, API and migration checks are reported as BLOCKED.
 
 ## 8. The office
 

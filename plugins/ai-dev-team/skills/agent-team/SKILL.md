@@ -1,11 +1,11 @@
 ---
 name: agent-team
-description: Default way to build or change code in a project, in any AI coding agent. Plans the work, then runs a token-efficient team of sub-agents (builders, then a verifier, or a reviewer and testers) sized to the task. It uses the project's graphify knowledge graph instead of reading files, and gives each task a model and effort level chosen from the user's own model list. Use for any request to build, add, implement, fix, refactor, update or change features, pages, components, APIs or app code, even when the user doesn't mention agents, for example "build X", "add Y to Z", "fix this bug", "refactor", "change the UI", "wire up", "migrate". Don't use for questions, explanations, review-only requests, or reading code without changing it. Questions that need online research go to the `research` skill.
+description: Default way to build or change code in a project, in any AI coding agent, front end or backend (endpoints, services, database, migrations), matching the repo's own code style. Plans the work, then runs a token-efficient team of sub-agents (builders, then a verifier, or a reviewer and testers) sized to the task. It uses the project's graphify knowledge graph instead of reading files, and gives each task a model and effort level chosen from the user's own model list. Use for any request to build, add, implement, fix, refactor, update or change features, pages, components, APIs or app code, even when the user doesn't mention agents, for example "build X", "add Y to Z", "fix this bug", "refactor", "change the UI", "wire up", "migrate". Don't use for questions, explanations, review-only requests, or reading code without changing it. Questions that need online research go to the `research` skill.
 license: MIT
 compatibility: Works in any AI coding agent that loads Agent Skills (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and others). Needs git and the graphify CLI; Python 3 for the optional office viewer.
 metadata:
   author: 111vandit111
-  version: "0.8.0"
+  version: "0.9.0"
   homepage: https://github.com/111vandit111/ai-dev-team
 ---
 
@@ -52,6 +52,8 @@ Role file: <absolute path of this skill's folder>/roles/<role>.md
 | `tasks/T<n>.md` | one small file per task: what to do, pointers, owned files, done-when |
 | `research/R<n>.md` | researcher findings for the planner's open questions |
 | `design.md` | the existing app's design system (UI work only) |
+| `backend.md` | the existing backend's conventions (backend work only) |
+| `style.md` | the repo's code style and the user's style decisions; kept across runs |
 | `notes.md` | shared findings: read before exploring, append after |
 | `tests/`, `runs/` | test files and Playwright; headless sub-agent logs |
 | `log.md` | one line per event, read by the office viewer |
@@ -81,7 +83,7 @@ If `graphify-out/.needs_update` exists, run `graphify update .`.
 
 **c. Config.** If `.agent-team/config.json` is missing or its `version` isn't `4`, follow `references/setup.md`. It runs on the first run only: it finds the user's models, sets how sub-agents start, and shows the role table to edit.
 
-**d. Housekeeping.** Make sure `.agent-team/` is in `.gitignore`. Keep any existing `notes.md`. Create `.agent-team/RUNNING`, and log `step` "preflight done".
+**d. Housekeeping.** Make sure `.agent-team/` is in `.gitignore`. Keep any existing `notes.md`, `style.md`, `backend.md` and `design.md`. Create `.agent-team/RUNNING`, and log `step` "preflight done".
 
 ## Step 1: Size the job
 Run one `graphify query "<task>" --budget 800` and estimate how many files and concerns the task touches.
@@ -96,9 +98,9 @@ Run one `graphify query "<task>" --budget 800` and estimate how many files and c
 Tell the user the size when you ask them to approve the plan; they can change it.
 
 ## Step 2: Plan
-For S, write the plan yourself. For M and L, start the planner (`roles.planner`) with the task and the size. It writes `plan.md`, `contracts.md`, `tasks/*.md`, and `design.md` for UI work.
+For S, write the plan yourself (`tasks/T1.md` header includes `kind`). Build `style.md` per `references/code-style.md` if missing, and `backend.md` / `design.md` per the "Backend work" / "UI work" sections of `roles/planner.md` if the work needs them and they're missing. Then compare the task to `style.md` and add `style:` items to "Needs user decision" as `roles/planner.md` "Code style" does. For M and L, start the planner (`roles.planner`) with the task and the size. It writes `plan.md`, `contracts.md`, `tasks/*.md`, `design.md` for UI work, `backend.md` for backend work, and `style.md` if missing. For XS, just follow `style.md` if it exists; never ask.
 
-If `plan.md` has "Research questions", do Step 2b first. Show the user `plan.md`'s table and any items under "Needs user decision". Ask once: approve it, change any model, effort or the size, or edit it. Don't ask again unless something is blocked.
+If `plan.md` has "Research questions", do Step 2b first. Show the user `plan.md`'s table and any items under "Needs user decision". Ask once: approve it, change any model, effort or the size, or edit it. Ask each `style:` item as its own question (options: keep the repo's way (default) / use the recommendation) and record the answer per `references/code-style.md` (step 3 format, step 6): add a Decisions line and set the area's status to `decided`, for both "use: <recommended>" and "keep repo way". No answer, "no" or skipped is recorded as keep repo way, so a decided area is never asked again. After a "use" answer, resume the planner (for S, edit `tasks/T1.md` yourself) so affected task files say the decided way; task files must never contradict `style.md`. Don't ask again unless something is blocked.
 
 ## Step 2b: Research (only when `plan.md` has "Research questions")
 Start one researcher per row (at most 3) at once, using `roles.researcher` (if missing, use `roles.planner`'s pair). Each prompt names the question and its output file: `.agent-team/research/R<n>.md`. Then resume the planner with the file paths so it folds the findings into the tasks, and show the plan as above. For an S job with no planner, you may start one researcher yourself when a fact is needed.
@@ -116,8 +118,8 @@ After each wave and each fix, run the non-empty `commands.build`, `typecheck` an
 On failure, match the files to their owning tasks and send each owner only its relevant error lines. The Retry policy applies. On success, run `graphify update .`.
 
 ## Step 5: Verify
-- **S and M:** one verifier (`roles.verifier`). It reviews the diff against `rules.md` and tests the changed behaviour, including the UI layout checks when UI changed.
-- **L:** a reviewer (`roles.reviewer`), then testers (`roles.tester`), one per "Test areas" row, grouped into at most 3. A `ui-layout` area is required whenever UI changed.
+- **S and M:** one verifier (`roles.verifier`). It reviews the diff against `rules.md` and tests the changed behaviour, including the UI layout checks when UI changed, API checks when endpoints changed, migration checks when the schema changed, and `[style]` flags.
+- **L:** a reviewer (`roles.reviewer`), then testers (`roles.tester`), one per "Test areas" row, grouped into at most 3. A `ui-layout` area is required whenever UI changed, an `api` area whenever endpoints changed, and a `migration` area whenever the schema changed.
 
 Send each issue to the owning builder, go back to Step 4, then re-verify only what changed. Report anything BLOCKED to the user at the end.
 

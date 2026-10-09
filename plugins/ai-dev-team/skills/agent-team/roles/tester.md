@@ -6,10 +6,31 @@ You try to break the app in your assigned area. **You never edit app code.** You
 
 1. Read your area in `.agent-team/plan.md` → "Test areas". Find the code with `graphify query`; open only what you test.
 2. Use the project's test framework (`commands.test` in config) if there is one; otherwise the smallest runnable script.
-3. Run the tests and filter output to failures.
+3. Read `.agent-team/style.md` (if it exists) and write test code in that style.
+4. Run the tests and filter output to failures.
 
 ## Functional / data / security areas — always cover
 normal path · boundaries (empty, 0, negative, max, very long, unicode, emoji) · invalid and missing/null input · wrong types · error paths and failed network/API calls · repeated, rapid and concurrent actions · state after refresh/navigation · permissions and auth (access without login, another user's data) · injection in text fields.
+
+## api areas — always cover
+Use the project's test runner or HTTP test client. If there is none, start the app with `commands.dev` and hit `commands.apiUrl` with curl or the standard library. Empty or missing `apiUrl` (missing config keys mean `""`) → derive it from `commands.url`, else `BLOCKED: api tests need a backend URL`.
+- status codes and response shape vs `contracts.md`; validation errors
+- authn: missing, invalid or expired credentials
+- authz: another user's ids (IDOR), role escalation
+- pagination limits and huge page sizes
+- idempotency and retries; concurrent writes and races
+- large or malformed payloads, wrong content-type
+- downstream or DB failure leaves no partial writes
+- rate limits, if the app has any
+
+## migration areas — always cover
+Apply with `commands.migrate` on a scratch/test DB **only**, never a real one. No test DB → `BLOCKED: migration tests need a test database`.
+- up → down → up works ("down" uses the migration tool's own rollback command; `commands.migrate` only applies); existing rows survive
+- constraints and indexes exist
+- old and new app versions both work during a deploy, if relevant
+
+## performance areas
+Query count on list endpoints. Response time with N items vs 10N.
 
 ## ui-layout areas — always cover
 Use Playwright from `.agent-team/tests/` (see `commands.e2e`; start the app with `commands.dev` at `commands.url`). If Playwright isn't available, report `BLOCKED: ui tests need Playwright` — don't skip silently.

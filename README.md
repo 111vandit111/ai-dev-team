@@ -2,7 +2,7 @@
 
 **A token-efficient team of AI coding agents** for Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and any tool that supports [Agent Skills](https://agentskills.io).
 
-A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Researchers look up open questions online, so the team builds on current best solutions. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
+A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. The team handles frontend and backend work: APIs, services, databases and migrations. Researchers look up open questions online, so the team builds on current best solutions. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
 
 > multi-agent workflow · sub-agents · per-task model selection · lower token usage · automated code review · AI testing · commit messages · Agent Skills · AGENTS.md
 
@@ -60,10 +60,10 @@ preflight ─► size ─► plan ─► builders (parallel, by wave) ─► bui
 
 1. **Preflight** checks for a knowledge graph, a `rules.md` and your model setup. It asks you before continuing if anything is missing.
 2. **The job is sized.** Tiny edits use no sub-agents at all. Small jobs use one builder and one verifier. Big jobs get the full team.
-3. **The planner** reads the knowledge graph, not raw files. It writes one small task file per task, with exact `file:line` pointers, owned files and the model and effort to use. If the plan depends on an open question, such as which library to use, the planner sends it to researchers first, and you see their sourced answers before you approve.
+3. **The planner** reads the knowledge graph, not raw files, and records your repo's code style. It writes one small task file per task, with exact `file:line` pointers, owned files and the model and effort to use. If the plan depends on an open question, such as which library to use, the planner sends it to researchers first, and you see their sourced answers before you approve.
 4. **Builders** run in parallel, one per model/effort group, and each edits only the files it owns.
 5. **The build is checked** with shell commands after every wave, with no agent involved. A failure goes to the builder that caused it, and moves up one effort level, then to a stronger model, only after failing twice.
-6. **Verification** reviews the diff against `rules.md` and your design, and tries to break the app, including **responsive layout at 9 screen widths** from 320 to 1920 px with Playwright.
+6. **Verification** reviews the diff against `rules.md` and your design, and tries to break the app, including **responsive layout at 9 screen widths** from 320 to 1920 px with Playwright. Changed API endpoints and migrations are checked too.
 7. **You get a commit message.** Nothing is ever committed or pushed for you.
 
 ### How sub-agents start in your tool
@@ -79,6 +79,12 @@ preflight ─► size ─► plan ─► builders (parallel, by wave) ─► bui
 | Anything else | its sub-agent feature or headless mode if it has one; otherwise one after another | depends on the tool |
 
 Headless runs edit files without asking each time, so the skill asks for your OK first and uses the narrowest permission flags. Details are in [`references/platforms/`](plugins/ai-dev-team/skills/agent-team/references/platforms).
+
+## Matches your code style
+
+On planning, the team reads your code and writes `.agent-team/style.md`: how your repo handles structure, recursion, errors, async, naming, file layout, tests, logging and more. Every agent then writes new code the same way.
+
+If a convention would make a task worse (for example, the repo never uses recursion and the task walks a tree), the team asks you once and recommends a better structure. Say no, or skip the question, and the repo's way stays the default for every agent. Decisions are remembered in `style.md`, so they are never asked twice. Existing code is not restyled.
 
 ## How it saves tokens
 
@@ -104,6 +110,7 @@ which PDF parsing library should I use for a Python service in 2026, and is it s
 - **Nothing gets committed.** An optional git guard makes git itself refuse commits and pushes while a run is active, whichever AI tool is running. The Claude Code plugin also blocks git writes with a hook.
 - **No paid libraries.** The order of preference is what the project already uses, then the standard library, then free open-source. A paid option only ever reaches you as a question, next to the free alternatives.
 - **Consistent design.** New UI has to match your existing pages, components and design tokens.
+- **Checked backend changes.** Changed API endpoints are tested, and schema changes are checked by applying migrations, next to the UI layout checks.
 
 ## Watch the team work
 
@@ -143,6 +150,7 @@ Every agent is a person at a desk, and the main agent sits at the center desk. E
 - **graphify**: `pip install graphifyy`, then build the graph with `graphify update .` (code only, free) or your tool's graphify skill
 - **git**, and **Python 3** for the office viewer
 - **`rules.md`** in your project root. If it's missing, the skill offers to generate an industry-standard one for your stack, including your own instructions.
+- Optional, for backend work: a local or test database for integration checks. Set the `migrate` command (applies migrations, e.g. to the test DB) and `apiUrl` (base URL of the running backend) in `.agent-team/config.json`.
 
 ## FAQ
 
