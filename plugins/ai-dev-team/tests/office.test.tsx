@@ -1,81 +1,193 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-// The engine beneath the plugin: just enough to start one agent and draw.
-const BAND = { hasSurvey: false, isWorking: true, maxRows: 20, bodyColumns: 100, scroll: { offset: 0, bodyRows: 19 }, view: {} }
+// The engine beneath the plugin: just enough to start agents, finish turns and draw.
+const BAND = { hasSurvey: false, isWorking: true, maxRows: 40, bodyColumns: 120, scroll: { offset: 0, bodyRows: 39 }, view: {} }
 const PANE = { title: 'Agent office', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} }
-const MAIN_SCREEN = { columns: 100, rows: 40, isFullscreen: false }
+const MAIN_SCREEN = { columns: 120, rows: 50, isFullscreen: false }
+const FULLSCREEN = { columns: 160, rows: 50, isFullscreen: true }
+const TICK = 400
 
-const USAGE = {
-  input_tokens: 1000,
-  output_tokens: 200,
-  cache_read_input_tokens: 500,
+const usage = (n: number) => ({
+  input_tokens: n,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
   cache_creation_input_tokens: 0,
   model: 'claude-sonnet-5-5',
-}
+})
 
-function engine(on, opened: string[] = []) {
+async function boot($, on, world = { opened: [] as string[], running: true }) {
   const clock = mock.clock(on)
-  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+  let agents = 0
+  on('session.start', (_$, e) => ({ cwd: e.cwd, startedAt: 0, context: {}, rateLimits: [] }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('command.run', () => ({ text: 'engine' }))
+  on('skill.prompt', (_$, e) => ({ text: e.text }))
+  on('prompt.submit', (_$, e) => ({ text: e.text }))
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `agent-${++agents}` }))
   on('tool.call', () => ({ result: 'ran', text: 'ran' }))
   on('turn.complete', (_$, e) => ({ text: e.answer }))
+  on('ui.toast', () => ({ value: undefined }))
   on('ui.panes', () => ({ value: [] }))
-  on('ui.open', (_$, e) => (opened.push(e.id), { value: { isPlaced: true } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('ui.open', (_$, e) => (world.opened.push(e.id), { value: { isPlaced: true } }))
+  on('fs.exists', () => ({ value: world.running }))
   on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
-  return clock
+  await $.session.start({ cwd: '/tmp/project', surface: 'terminal', isInteractive: true })
+  return { clock, world }
 }
 
-async function spawnBuilder($) {
-  return $.agent.spawn({
-    prompt: 'Role: builder\nRole file: /x/roles/builder.md',
-    subagentType: 'ai-dev-team:worker-medium',
+const startSkill = $ => $.skill.prompt({ skill: 'ai-dev-team:agent-team', text: 'run the team' })
+
+const spawn = ($, role = 'builder', effort = 'medium') =>
+  $.agent.spawn({
+    prompt: `Role: ${role}\nRole file: /x/roles/${role}.md`,
+    subagentType: `ai-dev-team:worker-${effort}`,
     model: 'sonnet',
-    description: 'build the page',
+    description: role,
   })
-}
+
+const finish = ($, agentId, tokens, reason = 'answer') =>
+  $.turn.complete({ answer: 'ok', durationMs: 10, isAborted: false, turnId: 't', agentId, usage: usage(tokens), reason })
+
+const band = ($, viewport = MAIN_SCREEN, props = BAND) =>
+  $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props, viewport })
 
 test('starting an agent passes the spawn through unchanged', async ($, on) => {
-  engine(on)
-  const started = await spawnBuilder($)
-  expect(started).toEqual({ model: 'claude-sonnet-5-5', agentId: 'agent-1' })
+  await boot($, on)
+  expect(await spawn($)).toEqual({ model: 'claude-sonnet-5-5', agentId: 'agent-1' })
 })
 
 test('tool calls pass through unchanged', async ($, on) => {
-  engine(on)
-  const ran = await $.tool.call({ tool: 'Bash', command: 'ls' })
-  expect(ran).toMatchObject({ result: 'ran' })
+  await boot($, on)
+  expect(await $.tool.call({ tool: 'Bash', command: 'ls' })).toMatchObject({ result: 'ran' })
 })
 
-test('the band shows the agent and the main agent once an agent starts', async ($, on) => {
-  const clock = engine(on)
-  await spawnBuilder($)
-  await clock.settle()
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  expect(await band.find({ text: /builder/ })).toBeDefined()
-  expect(await band.find({ text: /main agent/ })).toBeDefined()
-  expect(await band.find({ text: /1 working/ })).toBeDefined()
+test('the office opens as soon as the agent-team skill starts', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await clock.advance(TICK)
+  const office = await band($)
+  expect(await office.find({ text: /main agent/ })).toBeDefined()
+  expect(await office.find({ text: /No agents yet/ })).toBeDefined()
 })
 
-test('a finished agent shows done with its real tokens', async ($, on) => {
-  const clock = engine(on)
-  await spawnBuilder($)
-  await clock.settle()
-  await $.turn.complete({ answer: 'ok', durationMs: 10, isAborted: false, turnId: 't1', agentId: 'agent-1', usage: USAGE, reason: 'answer' })
-  await clock.settle()
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  expect(await band.find({ text: /1 done/ })).toBeDefined()
-  expect(await band.find({ text: /1\.7k tok/ })).toBeDefined()
+test('in the fullscreen layout the skill starting docks the side pane', async ($, on) => {
+  const { clock, world } = await boot($, on)
+  await band($, FULLSCREEN)
+  await startSkill($)
+  await clock.advance(TICK)
+  expect(world.opened).toEqual(['agent-office'])
 })
 
-test('with no agents the band leaves the engine its own row', async ($, on) => {
-  engine(on)
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  expect(await band.find({ text: /main agent/ })).toBeUndefined()
+test('on the main screen the side pane never opens by itself', async ($, on) => {
+  const { clock, world } = await boot($, on)
+  await band($, MAIN_SCREEN)
+  await startSkill($)
+  await spawn($)
+  await clock.advance(TICK * 3)
+  expect(world.opened).toEqual([])
+})
+
+test('other skills do not open the office', async ($, on) => {
+  const { clock } = await boot($, on)
+  await $.skill.prompt({ skill: 'commit', text: 'x' })
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /main agent/ })).toBeUndefined()
+})
+
+test('working agents are counted while they work', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await Promise.all([spawn($), spawn($), spawn($, 'verifier')])
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /3 working · 0 done/ })).toBeDefined()
+})
+
+test('a burst of simultaneous events loses no update', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  const ids = (await Promise.all([spawn($), spawn($), spawn($), spawn($)])).map(s => s.agentId)
+  await Promise.all(ids.flatMap(id => [1, 2, 3].map(() => $.tool.call({ tool: 'Read', file_path: 'a', agentId: id }))))
+  await Promise.all(ids.map((id, i) => finish($, id, 1000 * (i + 1))))
+  await clock.advance(TICK)
+  const office = await band($)
+  expect(await office.find({ text: /0 working · 4 done/ })).toBeDefined()
+  expect(await office.find({ text: /team: 10\.0k tok/ })).toBeDefined()
+})
+
+test('each desk shows its own real tokens', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  const { agentId } = await spawn($)
+  await finish($, agentId, 31086)
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /done · 31\.1k tok/ })).toBeDefined()
+})
+
+test('the main agent counts its own tokens during a run', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await finish($, undefined, 2500)
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /main agent · 2\.5k tok/ })).toBeDefined()
+})
+
+test('the run shows finished once its lock is gone, and the next prompt clears the office', async ($, on) => {
+  const { clock, world } = await boot($, on)
+  await startSkill($)
+  const { agentId } = await spawn($)
+  await finish($, agentId, 1000)
+  world.running = false
+  await finish($, undefined, 500)
+  await clock.advance(TICK * 2)
+  expect(await (await band($)).find({ text: /finished/ })).toBeDefined()
+  await $.prompt.submit({ text: 'something new', wait: false, origin: { kind: 'composer' } })
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /main agent/ })).toBeUndefined()
+})
+
+test('a failed agent shows as failed', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  const { agentId } = await spawn($)
+  await finish($, agentId, 100, 'error')
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /1 failed/ })).toBeDefined()
+})
+
+test('desks animate while an agent works', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await spawn($)
+  await clock.advance(TICK)
+  const office = await band($)
+  const before = JSON.stringify(await office.drawn())
+  await clock.advance(TICK)
+  expect(JSON.stringify(await office.drawn())).not.toBe(before)
+})
+
+test('agents started without the skill still show in a small band', async ($, on) => {
+  const { clock } = await boot($, on)
+  await spawn($)
+  await clock.advance(TICK)
+  const office = await band($)
+  expect(await office.find({ text: /office: 1 working/ })).toBeDefined()
+})
+
+test('a short band falls back to one summary line', async ($, on) => {
+  const { clock } = await boot($, on)
+  await spawn($)
+  await clock.advance(TICK)
+  const office = await band($, MAIN_SCREEN, { ...BAND, maxRows: 4 })
+  expect(await office.find({ text: /office: 1 working/ })).toBeDefined()
+  expect(await office.find({ text: /^main agent$/ })).toBeUndefined()
 })
 
 test('the side pane draws big desks on every surface', async ($, on) => {
-  const clock = engine(on)
-  await spawnBuilder($)
-  await clock.settle()
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await spawn($)
+  await clock.advance(TICK)
   for (const surface of ['terminal', 'desktop'] as const) {
     const pane = await $.ui.mount({ plugin: 'ai-dev-team', surface, component: 'Pane', requestId: 'agent-office', props: PANE })
     expect(await pane.find({ text: /sonnet · medium/ })).toBeDefined()
@@ -83,55 +195,19 @@ test('the side pane draws big desks on every surface', async ($, on) => {
   }
 })
 
-test('desks animate while an agent works', async ($, on) => {
-  const clock = engine(on)
-  await spawnBuilder($)
-  await clock.settle()
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  const before = JSON.stringify(await band.drawn())
-  await clock.advance(400)
-  const after = JSON.stringify(await band.drawn())
-  expect(after).not.toBe(before)
-})
-
-test('a narrow band falls back to one summary line', async ($, on) => {
-  const clock = engine(on)
-  await spawnBuilder($)
-  await clock.settle()
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: { ...BAND, maxRows: 4 }, viewport: MAIN_SCREEN })
-  expect(await band.find({ text: /office: 1 working/ })).toBeDefined()
-  expect(await band.find({ text: /^main agent$/ })).toBeUndefined()
-})
-
-test('the side pane never opens by itself on the main screen', async ($, on) => {
-  const opened: string[] = []
-  const clock = engine(on, opened)
-  await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  await spawnBuilder($)
-  await clock.settle()
-  expect(opened).toEqual([])
-})
-
-test('the side pane opens by itself in the fullscreen layout', async ($, on) => {
-  const opened: string[] = []
-  const clock = engine(on, opened)
-  await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: { ...MAIN_SCREEN, isFullscreen: true } })
-  await spawnBuilder($)
-  await clock.settle()
-  expect(opened).toEqual(['agent-office'])
-})
-
-test('/office enlarges the band on the main screen and tells the model nothing', async ($, on) => {
-  const clock = engine(on)
-  on('session.start', (_$, e) => ({ cwd: e.cwd, startedAt: 0, context: {}, rateLimits: [] }))
-  on('command.register', (_$, e) => ({ value: { command: e.name } }))
-  on('ui.toast', () => ({ value: undefined }))
-  on('command.run', () => ({ text: 'engine' }))
-  await $.session.start({ cwd: '/tmp/project', surface: 'terminal', isInteractive: true })
-  await spawnBuilder($)
-  await clock.settle()
+test('/office on the main screen enlarges the band and tells the model nothing', async ($, on) => {
+  const { clock } = await boot($, on)
+  await spawn($)
   const ran = await $.command.run({ command: 'office', args: '' })
   expect(ran.text).toBeUndefined()
-  const band = await $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props: BAND, viewport: MAIN_SCREEN })
-  expect(await band.find({ text: /sonnet · medium/ })).toBeDefined()
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /sonnet · medium/ })).toBeDefined()
+})
+
+test('/office off hides it', async ($, on) => {
+  const { clock } = await boot($, on)
+  await startSkill($)
+  await $.command.run({ command: 'office', args: 'off' })
+  await clock.advance(TICK)
+  expect(await (await band($)).find({ text: /main agent/ })).toBeUndefined()
 })

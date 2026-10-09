@@ -1,28 +1,38 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentSpawnInput, EngineInterface, Register } from 'claude-code'
 
-import type { Desk, Lead, OfficeView } from '../types'
+import type { Desk, Office, OfficeView } from '../types'
 
-// The agent office: every subagent is a person at a desk, the main agent sits at
+// The agent office: every sub-agent is a person at a desk, the main agent sits at
 // the center desk. Drawn from engine events only: no model calls, no tokens.
 //
-// It shows itself as a band above the prompt, which needs no opening and takes no
-// keys, and as a side pane only in the fullscreen layout, where the pane docks
+// Hooks change the office only in this module's memory, synchronously, so no
+// change is lost when a hook's event ends. A timer started at session start does
+// everything asynchronous: it publishes that memory for drawing, opens the side
+// pane and animates the desks.
+//
+// The office opens when the agent-team skill starts. It shows as a band above the
+// prompt, and as a side pane only in the fullscreen layout, where the pane docks
 // beside the transcript. It never opens a pane inline on its own: dismissing an
 // inline pane with Esc during a run would interrupt the turn and stop every agent.
-// Nothing here is awaited before next(e), so it never holds up an agent.
 
 const PANE = 'agent-office'
 const TITLE = 'Agent office'
+const TICK_MS = 400
 const BIG_DESK = 24
 const MINI_DESK = 12
-const LEAD_DESK = 14
+const LEAD_DESK = 15
 const BAND_ROWS = 5
 
-const desks = atom({ plugin: 'ai-dev-team', key: 'desks' } as const, [] as Desk[])
-const lead = atom({ plugin: 'ai-dev-team', key: 'lead' } as const, { isWorking: false, tool: '' } as Lead)
-const frame = atom({ plugin: 'ai-dev-team', key: 'frame' } as const, 0)
-const view = atom({ plugin: 'ai-dev-team', key: 'view' } as const, 'auto' as OfficeView)
+const EMPTY: Office = {
+  desks: [],
+  lead: { isWorking: false, tool: '', tokens: 0 },
+  view: 'auto',
+  isActive: false,
+  isRunning: false,
+  frame: 0,
+}
+const office = atom({ plugin: 'ai-dev-team', key: 'office' } as const, EMPTY)
 
 const BIG = {
   typingA: [' o   .----.', '/|\\_ |=== |', '/ \\  \'----\''],
@@ -46,44 +56,88 @@ const MINI_LEAD = {
   idle: [' o   ____', '/|\\ |    |'],
 }
 
-let ticker: { cancel: () => void } | undefined
+// The office as this module knows it. Only hooks change it, and only synchronously.
+let model: Office = EMPTY
+let version = 0
+let published = -1
+let wantsPane = false
+let wantsRunningCheck = false
 let isFullscreen = false
+let projectDir = ''
 
-const shortModel = (model: string) => model.match(/haiku|sonnet|opus|fable/i)?.[0].toLowerCase() ?? model
-const formatTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`)
+function change(next: Office) {
+  model = next
+  version += 1
+}
+
+const shortModel = (name: string) => name.match(/haiku|sonnet|opus|fable/i)?.[0].toLowerCase() ?? name
+const formatTokens = (n: number) => (n <= 0 ? '-' : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`)
 const clip = (text: string, width: number) => (text.length > width ? text.slice(0, width - 1) + '~' : text)
 const colorFor = (status: string) => (status === 'working' ? 'yellow' : status === 'done' ? 'green' : 'red')
+const isBusy = (o: Office) => o.lead.isWorking || o.desks.some(desk => desk.status === 'working')
 
 const roleOf = (prompt: string, subagentType: string) =>
   prompt.match(/^\s*Role:\s*([\w-]+)/m)?.[1] ?? subagentType.split(':').pop() ?? 'agent'
 
 const effortOf = (subagentType: string) => subagentType.match(/worker-(\w+)/)?.[1] ?? '-'
 
-function quietly(work: Promise<unknown>) {
-  void work.catch(() => undefined)
+const spentOf = (usage?: {
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+}) =>
+  usage
+    ? usage.input_tokens + usage.output_tokens + usage.cache_read_input_tokens + usage.cache_creation_input_tokens
+    : 0
+
+function startRun() {
+  wantsPane = true
+  change({ ...EMPTY, view: 'full', isActive: true, isRunning: true, lead: { isWorking: true, tool: 'agent-team', tokens: 0 } })
 }
 
-function trackSpawn($: EngineInterface, e: AgentSpawnInput, started: { agentId?: string; model?: string }) {
+function addDesk(e: AgentSpawnInput, started: { agentId?: string; model?: string }) {
   const role = roleOf(e.prompt, e.subagentType)
-  quietly(
-    update($, desks, list => {
-      const sameRole = list.filter(desk => desk.role === role).length
-      const desk: Desk = {
-        id: started.agentId as string,
-        role,
-        label: sameRole > 0 ? `${role} ${sameRole + 1}` : role,
-        model: shortModel(started.model ?? ''),
-        effort: effortOf(e.subagentType),
-        status: 'working',
-        tool: 'start',
-        tokens: 0,
-      }
-      return [...list, desk].slice(-24)
-    }),
-  )
-  // Unasked, a pane only opens where it docks as a sidebar.
-  if (isFullscreen) quietly($.ui.open({ id: PANE, title: TITLE }))
-  startTicker($)
+  const sameRole = model.desks.filter(desk => desk.role === role).length
+  const desk: Desk = {
+    id: started.agentId as string,
+    role,
+    label: sameRole > 0 ? `${role} ${sameRole + 1}` : role,
+    model: shortModel(started.model ?? e.model ?? ''),
+    effort: effortOf(e.subagentType),
+    status: 'working',
+    tool: 'start',
+    tokens: 0,
+  }
+  change({ ...model, desks: [...model.desks, desk].slice(-24) })
+}
+
+function patchDesk(id: string, patch: Partial<Desk>, addTokens: number) {
+  if (!model.desks.some(desk => desk.id === id)) return
+  change({
+    ...model,
+    desks: model.desks.map(desk => (desk.id === id ? { ...desk, ...patch, tokens: desk.tokens + addTokens } : desk)),
+  })
+}
+
+// One tick of the session's timer: the only place that waits on the host.
+async function tick($: EngineInterface) {
+  if (wantsPane) {
+    wantsPane = false
+    // Unasked, a pane only opens where it docks as a sidebar.
+    if (isFullscreen) await $.ui.open({ id: PANE, title: TITLE }).catch(() => undefined)
+  }
+  if (wantsRunningCheck && projectDir) {
+    wantsRunningCheck = false
+    const isRunning = await $.fs.exists(`${projectDir}/.agent-team/RUNNING`).catch(() => model.isRunning)
+    if (isRunning !== model.isRunning) change({ ...model, isRunning })
+  }
+  if (isBusy(model)) change({ ...model, frame: (model.frame + 1) % 2 })
+  if (version !== published) {
+    const target = version
+    await update($, office, () => model)
+    published = target
+  }
 }
 
 async function isPaneShown($: EngineInterface) {
@@ -94,36 +148,26 @@ async function isPaneShown($: EngineInterface) {
   }
 }
 
-function startTicker($: EngineInterface) {
-  if (ticker) return
-  try {
-    ticker = $.clock.every(400, tick($))
-  } catch {
-    ticker = undefined
-  }
-}
-
-function tick($: EngineInterface) {
-  return async () => {
-    const list = await read($, desks)
-    const boss = await read($, lead)
-    if (!boss.isWorking && !list.some(desk => desk.status === 'working')) {
-      ticker?.cancel()
-      ticker = undefined
-      return
-    }
-    await update($, frame, n => (n + 1) % 2)
-  }
-}
-
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    projectDir = e.cwd
+    // A reload keeps the published office; pick it up again.
+    model = (await read($, office)) ?? EMPTY
     await $.command.register({
       name: 'office',
       description: 'Agent office: /office (bigger), /office auto, /office off, /office clear',
       argumentHint: '[full|auto|off|clear]',
       immediate: true,
     })
+    $.clock.every(TICK_MS, () => {
+      void tick($).catch(() => undefined)
+    })
+    return next(e)
+  })
+
+  // The agent-team skill starting opens the office, as /office would.
+  on('skill.prompt', async ($, e, next) => {
+    if (/(^|:)agent-team$/.test(e.skill)) startRun()
     return next(e)
   })
 
@@ -132,21 +176,21 @@ export const register: Register = on => {
   on('command.run', { command: 'office' }, async ($, e) => {
     const arg = e.args.trim()
     if (arg === 'clear') {
-      await update($, desks, () => [])
+      change({ ...model, desks: [], lead: { ...model.lead, tokens: 0 } })
       $.ui.toast('Agent office cleared')
     } else if (arg === 'off') {
-      await update($, view, () => 'off' as OfficeView)
+      change({ ...model, view: 'off' as OfficeView })
       await $.ui.close({ id: PANE })
       $.ui.toast('Agent office hidden. /office auto shows it again')
     } else if (arg === 'auto' || arg === 'on') {
-      await update($, view, () => 'auto' as OfficeView)
+      change({ ...model, view: 'auto' as OfficeView })
       $.ui.toast('Agent office: small band above the prompt')
     } else if (e.presentation?.isFullscreen === true) {
-      await update($, view, () => 'auto' as OfficeView)
+      change({ ...model, view: 'auto' as OfficeView })
       await $.ui.open({ id: PANE, title: TITLE })
       $.ui.toast('Agent office docked beside the transcript. Close it with ctrl+x x (Esc during a run interrupts Claude)')
     } else {
-      await update($, view, () => 'full' as OfficeView)
+      change({ ...model, view: 'full' as OfficeView })
       $.ui.toast('Agent office expanded. /office auto shrinks it, /office off hides it')
     }
     return {}
@@ -154,110 +198,106 @@ export const register: Register = on => {
 
   on('agent.spawn', async ($, e, next) => {
     const started = await next(e)
-    if (!started.agentId) return started
-
-    // The agent is already running: nothing below may fail the hook.
-    try {
-      trackSpawn($, e, started)
-    } catch {
-      // The office is decoration; a missed desk is fine.
+    if (started.agentId) {
+      // The agent is already running: nothing here may fail the hook.
+      try {
+        addDesk(e, started)
+      } catch {
+        // The office is decoration; a missed desk is fine.
+      }
     }
     return started
   })
 
   on('tool.call', async ($, e, next) => {
-    quietly(
-      e.agentId
-        ? update($, desks, list =>
-            list.map(desk => (desk.id === e.agentId ? { ...desk, status: 'working', tool: e.tool } : desk)),
-          )
-        : update($, lead, () => ({ isWorking: true, tool: e.tool })),
-    )
-    startTicker($)
-    return next(e)
-  })
-
-  // A new prompt the person typed starts a fresh office, unless someone is still busy.
-  on('prompt.submit', async ($, e, next) => {
-    if (e.origin.kind === 'composer' && !e.text.trimStart().startsWith('/')) {
-      quietly(
-        update($, desks, list => (list.some(desk => desk.status === 'working') ? list : [])),
-      )
+    if (e.agentId) {
+      patchDesk(e.agentId, { status: 'working', tool: e.tool }, 0)
+    } else {
+      change({ ...model, isRunning: model.isRunning || model.isActive, lead: { ...model.lead, isWorking: true, tool: e.tool } })
     }
     return next(e)
   })
 
+  // A new prompt the person typed after a finished run starts a fresh, hidden office.
+  on('prompt.submit', async ($, e, next) => {
+    const isTyped = e.origin.kind === 'composer' && !e.text.trimStart().startsWith('/')
+    if (isTyped && !model.isRunning && !isBusy(model)) change({ ...EMPTY, view: model.view === 'off' ? 'off' : 'auto' })
+    return next(e)
+  })
+
   on('turn.complete', async ($, e, next) => {
-    const usage = e.usage
-    const spent = usage
-      ? usage.input_tokens + usage.output_tokens + usage.cache_read_input_tokens + usage.cache_creation_input_tokens
-      : 0
+    const spent = spentOf(e.usage)
     if (e.agentId) {
       const status = e.reason === 'answer' ? 'done' : 'failed'
-      quietly(
-        update($, desks, list =>
-          list.map(desk =>
-            desk.id === e.agentId ? { ...desk, status, tool: status, tokens: desk.tokens + spent } : desk,
-          ),
-        ),
-      )
+      patchDesk(e.agentId, { status, tool: status }, spent)
     } else {
-      quietly(update($, lead, () => ({ isWorking: false, tool: '' })))
+      // Whether the run is over is known once its RUNNING lock is gone.
+      if (model.isActive) wantsRunningCheck = true
+      change({ ...model, lead: { isWorking: false, tool: '', tokens: model.lead.tokens + (model.isActive ? spent : 0) } })
     }
     return next(e)
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const list = await read($, desks)
-    const boss = await read($, lead)
-    const tick = await read($, frame)
+    const shown = await read($, office)
     const columns = e.props?.bodyColumns ?? e.viewport?.columns ?? 80
-    return bigOffice($.ui.resolve(e), list, boss, tick, columns)
+    return bigOffice($.ui.resolve(e), shown, columns)
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     isFullscreen = e.viewport?.isFullscreen === true
-    const list = await read($, desks)
-    const mode = await read($, view)
-    if (e.props.hasSurvey || mode === 'off' || list.length === 0) return next(e)
-
+    const shown = await read($, office)
+    const isVisible = shown.isActive || shown.desks.length > 0
+    if (e.props.hasSurvey || shown.view === 'off' || !isVisible) return next(e)
     // The docked side pane already shows the office.
     if (await isPaneShown($)) return next(e)
 
-    const boss = await read($, lead)
-    const tick = await read($, frame)
     const parts = $.ui.resolve(e)
-    if (mode === 'full') return bigOffice(parts, list, boss, tick, e.props.bodyColumns)
-    if (e.props.maxRows < BAND_ROWS + 2) return summaryLine(parts, list, boss)
-    return miniOffice(parts, list, boss, tick, e.props.bodyColumns)
+    if (shown.view === 'full') return bigOffice(parts, shown, e.props.bodyColumns)
+    if (e.props.maxRows < BAND_ROWS + 2) return summaryLine(parts, shown)
+    return miniOffice(parts, shown, e.props.bodyColumns)
   })
 }
 
-function summaryLine({ Text }, list: Desk[], boss: Lead) {
-  const working = list.filter(desk => desk.status === 'working').length
-  const done = list.filter(desk => desk.status === 'done').length
-  const failed = list.filter(desk => desk.status === 'failed').length
-  const total = list.reduce((sum, desk) => sum + desk.tokens, 0)
-  const leadState = boss.isWorking ? `main: ${boss.tool}` : working > 0 ? 'main: waiting for team' : 'main: idle'
+function leadDoing(o: Office) {
+  if (o.lead.isWorking) return `> ${o.lead.tool}`
+  if (o.desks.some(desk => desk.status === 'working')) return 'waiting for team'
+  if (o.isActive) return o.isRunning ? 'thinking' : 'finished'
+  return 'idle'
+}
+
+function counts(o: Office) {
+  const working = o.desks.filter(desk => desk.status === 'working').length
+  const done = o.desks.filter(desk => desk.status === 'done').length
+  const failed = o.desks.filter(desk => desk.status === 'failed').length
+  const team = o.desks.reduce((sum, desk) => sum + desk.tokens, 0) + o.lead.tokens
+  return { working, done, failed, team }
+}
+
+function summaryLine({ Text }, o: Office) {
+  const { working, done, failed, team } = counts(o)
   return (
     <Text dimColor>
-      office: {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''} · {formatTokens(total)} tok ·{' '}
-      {leadState}
+      office: {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''} · team {formatTokens(team)} tok · main:{' '}
+      {leadDoing(o)}
     </Text>
   )
 }
 
-function miniOffice(parts, list: Desk[], boss: Lead, tick: number, columns: number) {
+function miniOffice(parts, o: Office, columns: number) {
   const { Box, Text } = parts
   const fits = Math.max(0, Math.floor((columns - LEAD_DESK) / MINI_DESK))
   // Busy desks first, then the most recent finished ones.
-  const shown = [...list.filter(desk => desk.status === 'working'), ...list.filter(desk => desk.status !== 'working').reverse()]
-    .slice(0, fits)
-  const hidden = list.length - shown.length
+  const shown = [
+    ...o.desks.filter(desk => desk.status === 'working'),
+    ...o.desks.filter(desk => desk.status !== 'working').reverse(),
+  ].slice(0, fits)
+  const hidden = o.desks.length - shown.length
   const half = Math.ceil(shown.length / 2)
 
   const mini = (desk: Desk) => {
-    const sprite = desk.status === 'working' ? (tick === 0 ? MINI.typingA : MINI.typingB) : MINI[desk.status] ?? MINI.idle
+    const sprite =
+      desk.status === 'working' ? (o.frame === 0 ? MINI.typingA : MINI.typingB) : MINI[desk.status] ?? MINI.idle
     const doing = desk.status === 'working' ? `>${clip(desk.tool, 5)}` : desk.status === 'done' ? 'ok' : '!!'
     return (
       <Box flexDirection="column" width={MINI_DESK}>
@@ -270,8 +310,7 @@ function miniOffice(parts, list: Desk[], boss: Lead, tick: number, columns: numb
     )
   }
 
-  const leadSprite = boss.isWorking ? (tick === 0 ? MINI_LEAD.typingA : MINI_LEAD.typingB) : MINI_LEAD.idle
-  const leadDoing = boss.isWorking ? `>${clip(boss.tool, 8)}` : shown.some(desk => desk.status === 'working') ? 'waiting' : 'idle'
+  const leadSprite = o.lead.isWorking ? (o.frame === 0 ? MINI_LEAD.typingA : MINI_LEAD.typingB) : MINI_LEAD.idle
 
   return (
     <Box flexDirection="column">
@@ -286,24 +325,24 @@ function miniOffice(parts, list: Desk[], boss: Lead, tick: number, columns: numb
           <Text color="magenta" bold>
             main agent
           </Text>
-          <Text dimColor>{leadDoing}</Text>
+          <Text dimColor>{clip(leadDoing(o), LEAD_DESK - 1)}</Text>
         </Box>
         {shown.slice(half).map(mini)}
       </Box>
       <Box flexDirection="row" justifyContent="center">
-        {summaryLine(parts, list, boss)}
+        {summaryLine(parts, o)}
         {hidden > 0 && <Text dimColor> · +{hidden} more (/office)</Text>}
       </Box>
     </Box>
   )
 }
 
-function bigOffice(parts, list: Desk[], boss: Lead, tick: number, columns: number) {
+function bigOffice(parts, o: Office, columns: number) {
   const { Box, Text } = parts
   const perRow = Math.max(1, Math.floor(columns / (BIG_DESK + 1)))
 
   const spriteFor = (status: string) =>
-    status === 'working' ? (tick === 0 ? BIG.typingA : BIG.typingB) : BIG[status] ?? BIG.idle
+    status === 'working' ? (o.frame === 0 ? BIG.typingA : BIG.typingB) : BIG[status] ?? BIG.idle
 
   const deskBox = (desk: Desk) => (
     <Box flexDirection="column" width={BIG_DESK} borderStyle="round" borderColor={colorFor(desk.status)} paddingX={1}>
@@ -330,31 +369,28 @@ function bigOffice(parts, list: Desk[], boss: Lead, tick: number, columns: numbe
     ))
   }
 
-  const half = Math.ceil(list.length / 2)
-  const working = list.filter(desk => desk.status === 'working').length
-  const done = list.filter(desk => desk.status === 'done').length
-  const total = list.reduce((sum, desk) => sum + desk.tokens, 0)
-  const leadSprite = boss.isWorking ? (tick === 0 ? BIG.typingA : BIG.typingB) : BIG.idle
-  const leadDoing = boss.isWorking ? `> ${boss.tool}` : working > 0 ? 'waiting for team' : 'idle'
+  const half = Math.ceil(o.desks.length / 2)
+  const { working, done, failed, team } = counts(o)
+  const leadSprite = o.lead.isWorking ? (o.frame === 0 ? BIG.typingA : BIG.typingB) : BIG.idle
 
   return (
     <Box flexDirection="column">
-      {rows(list.slice(0, half))}
+      {rows(o.desks.slice(0, half))}
       <Box flexDirection="row" justifyContent="center">
-        <Box flexDirection="column" width={BIG_DESK + 6} borderStyle="double" borderColor="magenta" paddingX={1}>
+        <Box flexDirection="column" width={BIG_DESK + 8} borderStyle="double" borderColor="magenta" paddingX={1}>
           {leadSprite.map(line => (
             <Text color="magenta">{line}</Text>
           ))}
-          <Text bold>main agent</Text>
-          <Text dimColor>{leadDoing}</Text>
+          <Text bold>main agent · {formatTokens(o.lead.tokens)} tok</Text>
+          <Text dimColor>{clip(leadDoing(o), BIG_DESK + 4)}</Text>
           <Text>
-            {working} working · {done} done
+            {working} working · {done} done{failed > 0 ? ` · ${failed} failed` : ''}
           </Text>
-          <Text dimColor>team: {formatTokens(total)} tok</Text>
+          <Text dimColor>team: {formatTokens(team)} tok</Text>
         </Box>
       </Box>
-      {rows(list.slice(half))}
-      {list.length === 0 && (
+      {rows(o.desks.slice(half))}
+      {o.desks.length === 0 && (
         <Box justifyContent="center">
           <Text dimColor>No agents yet. They appear here when the team starts.</Text>
         </Box>
