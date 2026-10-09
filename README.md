@@ -144,6 +144,11 @@ Every agent is a person at a desk, and the main agent sits at the center desk. E
 
 **In Claude Code**, the plugin also draws the office inside Claude Code itself: a band above the prompt, or a side panel in the fullscreen layout. It shows each agent's current tool and real token counts. Use `/office` to make it bigger, and `/office off` to hide it.
 
+- **It opens on its own** when a run starts: when the skill starts, when a sub-agent starts with a `Role:` line, or when `.agent-team/RUNNING` appears.
+- **The last run stays.** Typing your next message hides the band but keeps the run's desks and token counts in the side panel until the next run starts. `/office clear` empties it.
+- **Two totals for the main agent:** tokens for this run, and a session total that counts every turn, including normal chat outside runs.
+- If a crashed run leaves `.agent-team/RUNNING` behind, the office keeps showing a run until you delete that file.
+
 ## Requirements
 
 - An AI coding tool (any of the ones above)
