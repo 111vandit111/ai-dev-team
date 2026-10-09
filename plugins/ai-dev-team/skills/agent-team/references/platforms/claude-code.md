@@ -8,6 +8,7 @@
 - **Sub-agents: `native`.**
   - With the plugin: `Agent(subagent_type: "ai-dev-team:worker-<effort>", model: "<model>", prompt: …)`. The worker's name sets the effort; the model is set per call.
   - As a plain skill: `Agent(subagent_type: "general-purpose", model: "<model>", prompt: …)`. Effort can't be set, so use `efforts: []`.
+  - The workers include `WebSearch` and `WebFetch`, which researchers need. A plain `general-purpose` agent has them too.
   - Send fixes with `SendMessage` to the same agent, which keeps its context.
   - Agent results report token usage. Log it.
 - **Asking the user.** The AskUserQuestion tool.

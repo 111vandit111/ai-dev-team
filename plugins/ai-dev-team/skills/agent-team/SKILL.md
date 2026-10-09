@@ -1,11 +1,11 @@
 ---
 name: agent-team
-description: Default way to build or change code in a project, in any AI coding agent. Plans the work, then runs a token-efficient team of sub-agents (builders, then a verifier, or a reviewer and testers) sized to the task. It uses the project's graphify knowledge graph instead of reading files, and gives each task a model and effort level chosen from the user's own model list. Use for any request to build, add, implement, fix, refactor, update or change features, pages, components, APIs or app code, even when the user doesn't mention agents, for example "build X", "add Y to Z", "fix this bug", "refactor", "change the UI", "wire up", "migrate". Don't use for questions, explanations, review-only requests, or reading code without changing it.
+description: Default way to build or change code in a project, in any AI coding agent. Plans the work, then runs a token-efficient team of sub-agents (builders, then a verifier, or a reviewer and testers) sized to the task. It uses the project's graphify knowledge graph instead of reading files, and gives each task a model and effort level chosen from the user's own model list. Use for any request to build, add, implement, fix, refactor, update or change features, pages, components, APIs or app code, even when the user doesn't mention agents, for example "build X", "add Y to Z", "fix this bug", "refactor", "change the UI", "wire up", "migrate". Don't use for questions, explanations, review-only requests, or reading code without changing it. Questions that need online research go to the `research` skill.
 license: MIT
 compatibility: Works in any AI coding agent that loads Agent Skills (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and others). Needs git and the graphify CLI; Python 3 for the optional office viewer.
 metadata:
   author: 111vandit111
-  version: "0.7.0"
+  version: "0.8.0"
   homepage: https://github.com/111vandit111/ai-dev-team
 ---
 
@@ -38,7 +38,7 @@ Take the model and effort from the config (for a role) or from the task (for a b
 
 The prompt is always short:
 ```
-Role: <planner | builder | verifier | reviewer | tester>
+Role: <planner | researcher | builder | verifier | reviewer | tester>
 Role file: <absolute path of this skill's folder>/roles/<role>.md
 <task lines: task file paths and file:line pointers, never file contents or long logs>
 ```
@@ -50,6 +50,7 @@ Role file: <absolute path of this skill's folder>/roles/<role>.md
 | `plan.md` | a short table only: tasks, model, effort, wave |
 | `contracts.md` | names shared across tasks (functions, routes, keys, props), kept short |
 | `tasks/T<n>.md` | one small file per task: what to do, pointers, owned files, done-when |
+| `research/R<n>.md` | researcher findings for the planner's open questions |
 | `design.md` | the existing app's design system (UI work only) |
 | `notes.md` | shared findings: read before exploring, append after |
 | `tests/`, `runs/` | test files and Playwright; headless sub-agent logs |
@@ -97,7 +98,10 @@ Tell the user the size when you ask them to approve the plan; they can change it
 ## Step 2: Plan
 For S, write the plan yourself. For M and L, start the planner (`roles.planner`) with the task and the size. It writes `plan.md`, `contracts.md`, `tasks/*.md`, and `design.md` for UI work.
 
-Show the user `plan.md`'s table and any items under "Needs user decision". Ask once: approve it, change any model, effort or the size, or edit it. Don't ask again unless something is blocked.
+If `plan.md` has "Research questions", do Step 2b first. Show the user `plan.md`'s table and any items under "Needs user decision". Ask once: approve it, change any model, effort or the size, or edit it. Don't ask again unless something is blocked.
+
+## Step 2b: Research (only when `plan.md` has "Research questions")
+Start one researcher per row (at most 3) at once, using `roles.researcher` (if missing, use `roles.planner`'s pair). Each prompt names the question and its output file: `.agent-team/research/R<n>.md`. Then resume the planner with the file paths so it folds the findings into the tasks, and show the plan as above. For an S job with no planner, you may start one researcher yourself when a fact is needed.
 
 ## Step 3: Build
 For each wave, group the tasks by (model, effort). Start **one builder per group, all at once** (in parallel where your tool allows), each with its own list of task files: "Your tasks: `.agent-team/tasks/T2.md`, `T5.md`. Read `contracts.md` if your tasks mention it." For M, keep to the 3-builder cap by merging groups, using the higher effort. Log every start with the agent's id.

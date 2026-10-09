@@ -1,7 +1,7 @@
 {
   "name": "ai-dev-team",
-  "version": "0.7.0",
-  "description": "Multi-agent build pipeline for any AI coding agent: per-task models from your own list, knowledge-graph context, live office view",
+  "version": "0.8.0",
+  "description": "Multi-agent build pipeline and research skill for any AI coding agent: per-task models from your own list, knowledge-graph context, sourced research, live office view",
   "author": {
     "name": "111vandit111",
     "email": "vanditkala@gmail.com"
@@ -23,6 +23,7 @@
     "graphify",
     "multi-agent",
     "opencode",
+    "research",
     "subagents",
     "testing",
     "token-optimization"

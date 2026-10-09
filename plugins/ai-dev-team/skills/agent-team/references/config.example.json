@@ -8,10 +8,11 @@
   "models": [],
   "efforts": [],
   "roles": {
-    "planner":  { "model": "", "effort": "" },
-    "verifier": { "model": "", "effort": "" },
-    "reviewer": { "model": "", "effort": "" },
-    "tester":   { "model": "", "effort": "" }
+    "planner":    { "model": "", "effort": "" },
+    "researcher": { "model": "", "effort": "" },
+    "verifier":   { "model": "", "effort": "" },
+    "reviewer":   { "model": "", "effort": "" },
+    "tester":     { "model": "", "effort": "" }
   },
   "presets": {
     "trivial": { "model": "", "effort": "" },

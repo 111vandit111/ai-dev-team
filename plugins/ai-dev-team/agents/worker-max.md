@@ -1,7 +1,7 @@
 ---
 name: worker-max
-description: Agent-team worker running at max effort. Takes any role (planner, builder, verifier, reviewer, tester) from a role file named in its prompt; the model is chosen per call. Used by the agent-team skill.
-tools: Read, Edit, Write, Bash, Grep, Glob
+description: Agent-team worker running at max effort. Takes any role (planner, researcher, builder, verifier, reviewer, tester) from a role file named in its prompt; the model is chosen per call. Used by the agent-team skill.
+tools: Read, Edit, Write, Bash, Grep, Glob, WebSearch, WebFetch
 effort: max
 maxTurns: 60
 ---

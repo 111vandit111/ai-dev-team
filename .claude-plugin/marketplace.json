@@ -4,12 +4,12 @@
     "name": "111vandit111",
     "email": "vanditkala@gmail.com"
   },
-  "description": "Token-efficient multi-agent dev team for any AI coding agent (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Copilot): planner, parallel builders, verifier, per-task model selection from your own model list.",
+  "description": "Token-efficient multi-agent dev team and research skill for any AI coding agent (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Copilot): planner, parallel builders, verifier, sourced researchers, per-task model selection from your own model list.",
   "plugins": [
     {
       "name": "ai-dev-team",
       "source": "./plugins/ai-dev-team",
-      "description": "Multi-agent build pipeline for any AI coding agent: per-task models from your own list, knowledge-graph context, live office view"
+      "description": "Multi-agent build pipeline and research skill for any AI coding agent: per-task models from your own list, knowledge-graph context, sourced research, live office view"
     }
   ]
 }

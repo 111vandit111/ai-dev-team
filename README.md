@@ -2,13 +2,13 @@
 
 **A token-efficient team of AI coding agents** for Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and any tool that supports [Agent Skills](https://agentskills.io).
 
-A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
+A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. Researchers look up open questions online, so the team builds on current best solutions. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
 
 > multi-agent workflow · sub-agents · per-task model selection · lower token usage · automated code review · AI testing · commit messages · Agent Skills · AGENTS.md
 
 ## Install
 
-**Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and other Agent Skills tools.** One command installs to `~/.agents/skills`, which all of them read:
+**Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and other Agent Skills tools.** One command installs both skills (`agent-team` and `research`) to `~/.agents/skills`, which all of them read:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/install.sh | bash
@@ -46,6 +46,7 @@ Nothing is hard-coded. On the first run in a project, the skill builds your mode
 | hardest | strongest model · top effort | deep reasoning |
 | planner | mid model · high effort | splits the task, picks a model and effort per task |
 | verifier / reviewer / tester | mid model · medium effort | review against your `rules.md`, and trying to break the app |
+| researcher | mid model · medium effort | looks up current best solutions online for open questions |
 
 Your choices are saved in `.agent-team/config.json`. You can also save them as your default for new projects, and change the model or effort of any task when you approve the plan.
 
@@ -59,7 +60,7 @@ preflight ─► size ─► plan ─► builders (parallel, by wave) ─► bui
 
 1. **Preflight** checks for a knowledge graph, a `rules.md` and your model setup. It asks you before continuing if anything is missing.
 2. **The job is sized.** Tiny edits use no sub-agents at all. Small jobs use one builder and one verifier. Big jobs get the full team.
-3. **The planner** reads the knowledge graph, not raw files. It writes one small task file per task, with exact `file:line` pointers, owned files and the model and effort to use.
+3. **The planner** reads the knowledge graph, not raw files. It writes one small task file per task, with exact `file:line` pointers, owned files and the model and effort to use. If the plan depends on an open question, such as which library to use, the planner sends it to researchers first, and you see their sourced answers before you approve.
 4. **Builders** run in parallel, one per model/effort group, and each edits only the files it owns.
 5. **The build is checked** with shell commands after every wave, with no agent involved. A failure goes to the builder that caused it, and moves up one effort level, then to a stronger model, only after failing twice.
 6. **Verification** reviews the diff against `rules.md` and your design, and tries to break the app, including **responsive layout at 9 screen widths** from 320 to 1920 px with Playwright.
@@ -89,6 +90,14 @@ Headless runs edit files without asking each time, so the skill asks for your OK
 - **Resume, don't restart.** Builders fix their own work with their context kept, where your tool allows it.
 - **Diff-only review**, and short reports from every agent.
 - **First-run setup lives in its own file**, so normal runs never read it.
+
+## Research skill
+
+Ask a question instead of asking for a build. The `research` skill splits it into 2–4 angles, runs a researcher for each in parallel, and writes one answer with sources, trade-offs, a recommendation and a confidence level. It never changes your code.
+
+```
+which PDF parsing library should I use for a Python service in 2026, and is it still maintained?
+```
 
 ## Guardrails
 

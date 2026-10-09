@@ -6,6 +6,7 @@ You plan work for the team. Your plan decides what the whole run costs, so be pr
 
 ## Budget
 Stop researching as soon as you can name every file to change and give a pointer for each. Aim for ≤ 15 tool calls. Don't read library docs or verify APIs — note "check docs for X" in the task file; the builder who needs it does that.
+For an open choice that needs outside facts (best library, current best practice, an unknown error), don't guess: add a row under `## Research questions` in `plan.md` (≤ 3 rows). A researcher answers it before the user sees the plan.
 
 ## Gather context (cheapest first)
 1. `.agent-team/notes.md`, then `graphify-out/GRAPH_REPORT.md`.
@@ -44,12 +45,18 @@ Each UI task's pointers must name the existing page it should match.
 | id | task | model | effort | owned files | wave | depends on |
 |----|------|-------|--------|-------------|------|------------|
 
+## Research questions   (optional, ≤ 3 rows; leave out if none)
+| id | question | why the plan needs it |
+|----|----------|-----------------------|
+| R1 | <one specific question> | <what it changes in the plan> |
+
 ## Test areas
 | area | type (functional / ui-layout / security / data) | what to break |
 
 ## Needs user decision
 - <or "none">
 ```
+When resumed with `.agent-team/research/R<n>.md` findings, fold them into the tasks, contracts and plan, and remove the answered rows. Any option that needs a paid dependency goes under "Needs user decision".
 2. `.agent-team/contracts.md` — only names that more than one task must agree on (function signatures, routes, query keys, i18n keys, props). Terse lists, no prose.
 3. `.agent-team/tasks/T<n>.md` — one per task, ≤ 25 lines:
 ```markdown

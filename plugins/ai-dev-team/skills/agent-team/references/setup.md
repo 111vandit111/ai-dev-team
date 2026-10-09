@@ -39,6 +39,7 @@ Fill defaults from the ordered list. *cheap* = first, *strong* = last, *mid* = t
 | preset: complex | strong | high | interdependent logic, security, migrations |
 | preset: hardest | strong | top | deep reasoning |
 | role: planner | mid | high | planning, choosing model + effort per task |
+| role: researcher | mid | middle | web research for open questions |
 | role: verifier | mid | middle | review + test for small and medium jobs |
 | role: reviewer | mid | middle | review for large jobs |
 | role: tester | mid | middle | testing for large jobs |
