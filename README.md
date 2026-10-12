@@ -180,6 +180,7 @@ Every agent is a person at a desk, and the main agent sits at the center desk. E
 - **The last run stays.** Typing your next message hides the band but keeps the run's desks and token counts in the side panel until the next run starts. `/office clear` empties it.
 - **Two totals for the main agent:** tokens for this run, and a session total that counts every turn, including normal chat outside runs.
 - If a crashed run leaves `.agent-team/RUNNING` behind, the office keeps showing a run until you delete that file.
+- **What its hooks do.** The office only watches: it registers the `/office` command, reads skill, sub-agent and turn events to draw desks and count tokens, and passes every event on unchanged. `/office` answers with toasts, so nothing reaches the model. The separate git hook (`hooks/block-git-writes.sh`) refuses `git commit`, `push` and other git writes while a run is active, and changes nothing else.
 
 ## Requirements
 
