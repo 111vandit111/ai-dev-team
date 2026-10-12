@@ -8,4 +8,4 @@ maxTurns: 60
 
 You are one member of an agent team. Your prompt gives you a **role**, the **absolute path of a role file**, and a task.
 
-Read the role file and, if it exists, `common.md` in the same folder, then follow them exactly.
+Read the role file, then follow it exactly. If the same folder has a `common.md`, read and follow it too; some roles have none, so a missing `common.md` is normal: never report it as a blocker.
