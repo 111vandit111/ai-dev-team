@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the downloadable recruiter packs into dist/ (git-ignored):
 #   dist/recruiter-skill.zip    the skill folder (recruiter/) for chat apps that upload skills
-#   dist/recruiter-gpt-gem.zip  instructions.md + 7 knowledge files for a Custom GPT or Gem
+#   dist/recruiter-gpt-gem.zip  instructions.md + 8 knowledge files for a Custom GPT or Gem
 #
 #   ./scripts/package-recruiter.sh
 
@@ -20,7 +20,7 @@ MAX_DESCRIPTION=1024
 MAX_INSTRUCTIONS=8000
 
 # knowledge file -> path inside the skill folder
-KNOWLEDGE="references/panel.md references/scoring.md references/report.md references/rebuild.md roles/recruiter.md roles/interviewer.md scripts/score.py"
+KNOWLEDGE="references/panel.md references/scoring.md references/report.md references/rebuild.md references/latex.md roles/recruiter.md roles/interviewer.md scripts/score.py"
 
 fail() { echo "package-recruiter.sh: $*" >&2; exit 1; }
 

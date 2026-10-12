@@ -45,6 +45,18 @@ Raised by 2+ recruiters or tied to a knock-out.
 ## ATS plain-text check                                             (R)
 <what the plain-text extraction showed: reading order, lost headings, broken contact info, or "clean">
 
+## LaTeX changes                                                   (O: only when a .tex was given)
+1. **<section>** [<recruiter ids or ats-parse>]: "<before>" → "<after>" — <why>
+
+### Needs your input
+- <each `% TODO(recruiter)` question and the line it affects>
+
+### Updated LaTeX
+Saved as `resume-fixed.tex` (compiled: yes|no). Paste this into Overleaf:
+```latex
+<the full resume-fixed.tex>
+```
+
 ## What was judged                                                  (R)
 Job-related content only. Name, photo, age, gender, ethnicity, religion, nationality, marital status and disability were not scored.
 <If the target came from general role knowledge, not a pasted JD: "The target is based on general knowledge of <role>; items marked [?] and the must-haves are assumptions.">

@@ -1,17 +1,17 @@
 ---
 name: recruiter
-description: Reviews a resume or CV against a target job with a panel of six recruiter sub-agents (ATS screener, 6-second skimmer, technical recruiter, hiring manager, agency recruiter, skeptic), scores it 0-10 with an Accept, Maybe or Reject verdict, lists quoted fixes, and prepares 5-10 likely interview questions. Can then rebuild the resume as a clean Markdown draft. Use when the user asks to review, critique or score their resume or CV, run an ATS check, rate a resume for a job, get resume feedback, rewrite or rebuild a resume, or prepare for interviews from a resume. Don't use for code work (use agent-team) or for general web questions (use research).
+description: Reviews a resume or CV against a target job with a panel of six recruiter sub-agents (ATS screener, 6-second skimmer, technical recruiter, hiring manager, agency recruiter, skeptic), scores it 0-10 with an Accept, Maybe or Reject verdict, lists quoted fixes, and prepares 5-10 likely interview questions. Can fix the LaTeX or Overleaf source of the resume, and can rebuild the resume as a clean Markdown draft. Use when the user asks to review, critique or score their resume or CV, run an ATS check, rate a resume for a job, get resume feedback, rewrite or rebuild a resume, or prepare for interviews from a resume. Don't use for code work (use agent-team) or for general web questions (use research).
 license: MIT
 compatibility: Works in any AI coding agent that loads Agent Skills (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and others) and in the Claude app, ChatGPT and Gemini chat apps, which have no shell, so the persona panel runs one after another. Sub-agents and web access are optional; without them it plays each persona itself. Python 3 is optional; without it the scores are computed by hand.
 metadata:
   author: 111vandit111
-  version: "0.1.0"
+  version: "0.2.0"
   homepage: https://github.com/111vandit111/ai-dev-team
 ---
 
 # Recruiter
 
-You are the **orchestrator**. You turn a resume and a target job into a scored review, run a panel of recruiter and interviewer sub-agents, and write one report. You never edit project code and never change git state. Read-only except `.resume-review/`, `resume-review.md` and `resume-rebuild.md`.
+You are the **orchestrator**. You turn a resume and a target job into a scored review, run a panel of recruiter and interviewer sub-agents, and write one report. You never edit project code and never change git state. Read-only except `.resume-review/`, `resume-review.md`, `resume-rebuild.md` and `resume-fixed.tex`.
 
 If you cannot read the resume (no file reader and no text pasted), stop and tell the user: `BLOCKED: cannot read the resume`.
 
@@ -21,6 +21,7 @@ Read `<skills folder>/recruiter/references/platforms/<tool>.md` once: `claude-co
 ## 2. Inputs
 - **Fresh start:** delete and recreate `.resume-review/recruiters/` and `.resume-review/interviewers/`, and delete `.resume-review/weak-spots.md`, so files from an earlier run are never scored.
 - **Resume:** a path (pdf, docx, md, txt) or pasted text. Extract it to `.resume-review/resume.txt` with your file reader. Fallbacks: `pdftotext -layout`, `textutil -convert txt` (macOS), `pandoc`, or a python `zipfile` read of the docx. Keep the raw extraction: its order is the ATS evidence. If it is empty or garbled (for example a scanned PDF), try OCR if available; otherwise ask the user for pasted text or a docx. If no resume was given, ask for one.
+- **LaTeX source (optional):** when you ask for the resume, or for the JD if one is still needed, ask ONCE whether they have the LaTeX/Overleaf source (a `.tex`, or the Overleaf "Download source" zip). Don't ask if they already gave a `.tex`. Save it to `.resume-review/source/`; for a zip, the main file is the `.tex` with `\documentclass`, and keep the other files. If they have none, skip this; nothing else changes. Check the `.tex` matches the resume given; if they differ, say so and ask which is current.
 - **Target:** never score without one.
   1. A pasted or linked job description (JD): save it to `.resume-review/role.md`.
   2. No JD: ask for it. If the user has none, ask for the **position and company** (seniority optional).
@@ -62,17 +63,20 @@ Each writes 6 candidate questions and returns ≤ 5 lines. Without sub-agents, w
 Pick **5-10 questions, default 8**: at least 1 per interviewer, and at least 2 each when you pick 6 or more, no near-duplicates, highest likelihood first. Give each a one-line answer tip (a STAR outline for behavioral ones).
 
 ## 7. Write the report
-Write `resume-review.md` in the current folder, following `<skills folder>/recruiter/references/report.md`. Then show a chat summary of ≤ 15 lines: score, verdict (and knock-out reason if any), each recruiter's score, the top 3 must-fixes, the path. Ask: "Want a rebuild guide and a rewritten draft?" Settle this before step 8. If yes, read `<skills folder>/recruiter/references/rebuild.md` and follow it yourself, no sub-agent, writing `resume-rebuild.md`.
+If a `.tex` was given, first read `<skills folder>/recruiter/references/latex.md` and follow it yourself, no sub-agent, writing `resume-fixed.tex` and the `## LaTeX changes` block.
+
+Write `resume-review.md` in the current folder, following `<skills folder>/recruiter/references/report.md`. Then show a chat summary of ≤ 15 lines: score, verdict (and knock-out reason if any), each recruiter's score, the top 3 must-fixes, the path. With a `.tex`, also say the number of LaTeX changes, the number of TODOs and the `resume-fixed.tex` path. Ask: "Want a rebuild guide and a rewritten draft?" Settle this before step 8. With a `.tex` the question is optional, because `resume-fixed.tex` replaces the Markdown draft, but still offer the rebuild guide. If yes, read `<skills folder>/recruiter/references/rebuild.md` and follow it yourself, no sub-agent, writing `resume-rebuild.md`.
 
 ## 8. Privacy
-Only after the rebuild question is settled (the rebuild reads `resume.txt`), tell the user `.resume-review/` holds their personal data and offer to delete it. If you are inside a git repo, suggest adding `.resume-review/`, `resume-review.md` and `resume-rebuild.md` to `.gitignore`.
+Only after the rebuild question is settled (the rebuild reads `resume.txt`), tell the user `.resume-review/` (including `.resume-review/source/`) holds their personal data and offer to delete it. If you are inside a git repo, suggest adding `.resume-review/`, `resume-review.md`, `resume-rebuild.md` and `resume-fixed.tex` to `.gitignore`.
 
 ## Chat apps (no shell or file system)
 Use this when you cannot run shell commands or write files in a working folder. Skip step 1. Paths below are in the skill's own `references/`, `roles/`, `scripts/` folders.
-- **Resume:** the uploaded file or pasted text. **Target:** step 2's rules (JD, else position and company). Search the web only if you can; otherwise use general knowledge and say so.
+- **Resume:** the uploaded file or pasted text. **LaTeX source:** ask once for the LaTeX/Overleaf source as in step 2 (a `.tex` or pasted LaTeX). **Target:** step 2's rules (JD, else position and company). Search the web only if you can; otherwise use general knowledge and say so.
 - **Recruiters:** play the 6 personas one after another from `references/panel.md`, each judged fresh. Keep notes in the conversation. End each with the JSON score line exactly as `roles/recruiter.md` says.
 - **Score:** with code execution, save each recruiter's json block as its own file (`ats.md`, `skim.md`, `tech.md`, `hm.md`, `agency.md`, `skeptic.md`) and run `python3 scripts/score.py ats.md skim.md tech.md hm.md agency.md skeptic.md`. One file each, because score.py keeps only the last json block per file. Without it, compute by hand per `references/scoring.md` and show the working.
 - **Interviewers:** play the 3 personas, then pick 5-10 questions as in step 6.
+- **LaTeX:** if a source was given, apply `references/latex.md`, print the change list and the full updated LaTeX in a code block, and offer `resume-fixed.tex` as a file if the app can make one.
 - **Report:** print it in chat per `references/report.md`. If the app can make downloadable files, also offer `resume-review.md` (and `resume-rebuild.md`).
 - **Privacy:** skip step 8's deletion. Remind the user that uploaded files stay in the chat history.
 

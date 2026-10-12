@@ -117,7 +117,7 @@ which PDF parsing library should I use for a Python service in 2026, and is it s
 
 ## Recruiter skill
 
-Paste your resume and the job description (or just the position and company) and ask for a review. The `recruiter` skill (plugin **recruiter-panel**) runs six recruiter personas in parallel (ATS screener, six-second skimmer, technical recruiter, hiring manager, agency recruiter and skeptic), scores the resume, and gives an Accept, Maybe or Reject verdict. It writes `resume-review.md` with the fixes ranked by how many recruiters raised them, plus 5–10 likely interview questions from a behavioral, technical and bar-raiser interviewer. Afterwards you can ask for a rebuild guide and a rewritten draft that uses only facts from your resume, with `[?]` where a number is missing. Your data stays in a local `.resume-review/` folder that you can delete. Set `roles.recruiter` (model and effort) in `.agent-team/config.json` to choose the model; otherwise your tool's default is used.
+Paste your resume and the job description (or just the position and company) and ask for a review. The `recruiter` skill (plugin **recruiter-panel**) runs six recruiter personas in parallel (ATS screener, six-second skimmer, technical recruiter, hiring manager, agency recruiter and skeptic), scores the resume, and gives an Accept, Maybe or Reject verdict. It writes `resume-review.md` with the fixes ranked by how many recruiters raised them, plus 5–10 likely interview questions from a behavioral, technical and bar-raiser interviewer. Afterwards you can ask for a rebuild guide and a rewritten draft that uses only facts from your resume, with `[?]` where a number is missing. If you also give the LaTeX or Overleaf source (a `.tex` or the "Download source" zip), it writes `resume-fixed.tex` with the fixes applied, keeping your template, and lists the questions it needs you to answer. Your data stays in a local `.resume-review/` folder that you can delete. Set `roles.recruiter` (model and effort) in `.agent-team/config.json` to choose the model; otherwise your tool's default is used.
 
 ```
 review my resume at ~/cv.pdf for this job: <paste the job description>
@@ -131,9 +131,9 @@ The recruiter skill also runs in chat apps that have no shell or sub-agents. Dow
 |-----|----------|-----------------|
 | Claude app (Pro, Max, Team, Enterprise, with code execution on) | `recruiter-skill.zip` | Settings → Features/Capabilities → Upload skill |
 | ChatGPT Business, Enterprise, Edu, Healthcare | `recruiter-skill.zip` | Plugins → Skills → Create → Upload from your computer |
-| Custom GPT (any paid plan) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into Instructions, upload the 7 other files (`panel.md`, `scoring.md`, `report.md`, `rebuild.md`, `recruiter.md`, `interviewer.md`, `score.py`) as Knowledge, turn on Code Interpreter |
+| Custom GPT (any paid plan) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into Instructions, upload the 8 other files (`panel.md`, `scoring.md`, `report.md`, `rebuild.md`, `latex.md`, `recruiter.md`, `interviewer.md`, `score.py`) as Knowledge, turn on Code Interpreter |
 | Gemini Enterprise | `recruiter-skill.zip` | Import it as a skill (an admin must enable skills) |
-| Gem (Gemini) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into the Gem's instructions and add the same 7 files as knowledge. Without code execution the model works out the score by hand |
+| Gem (Gemini) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into the Gem's instructions and add the same 8 files as knowledge. Without code execution the model works out the score by hand |
 
 In a chat app the six recruiters and three interviewers run one after another in a single conversation, so a review is slower and uses one model. Rebuild the zips with `./scripts/package-recruiter.sh`.
 
