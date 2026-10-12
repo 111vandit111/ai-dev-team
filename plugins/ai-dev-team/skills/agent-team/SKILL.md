@@ -131,7 +131,7 @@ Read `git status --short` and `git diff --stat` (leaving out `.agent-team/`), pl
 - <change and why>
 ```
 Delete `.agent-team/RUNNING`. Show the user the message and how to commit it themselves; don't run it:
-`git add -A -- . ':!.agent-team' && git commit -F .agent-team/COMMIT_MSG.txt`
+`git add -A && git commit -F .agent-team/COMMIT_MSG.txt`
 
 ## Retry policy (per task)
 1. Send the error to the same builder (resume it if your tool can; otherwise start a new one with the task file and the error).
