@@ -1,6 +1,6 @@
 # Any other AI tool
 
-- **Install.** Most tools that support Agent Skills read `~/.agents/skills/`; others have their own folder, for example `~/.config/agents/skills/` (Amp), `~/.kiro/skills/` (Kiro) or `~/.factory/skills/` (Factory Droid). If your tool has no skills support, add a line to its instructions file (often `AGENTS.md`): "For any request that changes code, follow `<path>/agent-team/SKILL.md`."
+- **Install.** (`<skill>` is `agent-team`, `research` or `recruiter`.) Most tools that support Agent Skills read `~/.agents/skills/`; others have their own folder, for example `~/.config/agents/skills/` (Amp), `~/.kiro/skills/` (Kiro) or `~/.factory/skills/` (Factory Droid). If your tool has no skills support, add a line to its instructions file (often `AGENTS.md`): "For any request that changes code, follow `<path>/<skill>/SKILL.md`."
 - **Models.** Ask the user to open the tool's model picker (`/model`, `/models`, or settings) and paste the list, cheapest first.
 - **Efforts.** Ask whether the tool has reasoning or effort levels. If not, use `[]`.
 - **Sub-agents**, in order of preference:

@@ -2,7 +2,7 @@
 
 **A token-efficient team of AI coding agents** for Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and any tool that supports [Agent Skills](https://agentskills.io).
 
-A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. The team handles frontend and backend work: APIs, services, databases and migrations. Researchers look up open questions online, so the team builds on current best solutions. A separate recruiter skill reviews your resume with a panel of recruiters and preps you for interviews. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
+A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. The team handles frontend and backend work: APIs, services, databases and migrations. Researchers look up open questions online, so the team builds on current best solutions. Two optional companion plugins add a standalone `research` skill (**research-team**) and a recruiter skill (**recruiter-panel**) that reviews your resume with a panel of recruiters and preps you for interviews. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
 
 > multi-agent workflow · sub-agents · per-task model selection · lower token usage · automated code review · AI testing · commit messages · Agent Skills · AGENTS.md
 
@@ -14,12 +14,22 @@ A planner, parallel builders and a verifier (or a reviewer and testers on big jo
 curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/install.sh | bash
 ```
 
-**Claude Code.** Install as a plugin. It adds effort-level workers, a live office pane and a git-write block:
+**Claude Code.** Install the plugins you want (any subset):
 
 ```
 /plugin marketplace add 111vandit111/ai-dev-team
 /plugin install ai-dev-team@ai-dev-team
+/plugin install research-team@ai-dev-team
+/plugin install recruiter-panel@ai-dev-team
 ```
+
+| Plugin | Skill | What it adds |
+|---|---|---|
+| `ai-dev-team` | `agent-team` | The build pipeline, plus effort-level workers, the live office pane and a git-write block |
+| `research-team` | `research` | Sourced, cross-checked web research with parallel researchers (read-only) |
+| `recruiter-panel` | `recruiter` | Resume review panel and interview prep |
+
+**Upgrading from 0.11.** The `research` and `recruiter` skills moved out of `ai-dev-team` into their own plugins. Install `research-team` and `recruiter-panel` to keep them.
 
 Other options (`./install.sh --help`): `--project` installs into this project's `.agents/skills`, `--dir PATH` installs into any skills folder (for example `~/.kiro/skills`), `--claude` also installs the Claude Code plugin, `--link` symlinks for development, and `--uninstall` removes it.
 
@@ -99,7 +109,7 @@ If a convention would make a task worse (for example, the repo never uses recurs
 
 ## Research skill
 
-Ask a question instead of asking for a build. The `research` skill splits it into 2–4 angles, runs a researcher for each in parallel, and writes one answer with sources, trade-offs, a recommendation and a confidence level. It never changes your code.
+Ask a question instead of asking for a build. The `research` skill (plugin **research-team**) splits it into 2–4 angles, runs a researcher for each in parallel, and writes one answer with sources, trade-offs, a recommendation and a confidence level. It never changes your code.
 
 ```
 which PDF parsing library should I use for a Python service in 2026, and is it still maintained?
@@ -107,7 +117,7 @@ which PDF parsing library should I use for a Python service in 2026, and is it s
 
 ## Recruiter skill
 
-Paste your resume and the job description (or just the position and company) and ask for a review. The `recruiter` skill runs six recruiter personas in parallel (ATS screener, six-second skimmer, technical recruiter, hiring manager, agency recruiter and skeptic), scores the resume, and gives an Accept, Maybe or Reject verdict. It writes `resume-review.md` with the fixes ranked by how many recruiters raised them, plus 5–10 likely interview questions from a behavioral, technical and bar-raiser interviewer. Afterwards you can ask for a rebuild guide and a rewritten draft that uses only facts from your resume, with `[?]` where a number is missing. Your data stays in a local `.resume-review/` folder that you can delete. Set `roles.recruiter` (model and effort) in `.agent-team/config.json` to choose the model; otherwise your tool's default is used.
+Paste your resume and the job description (or just the position and company) and ask for a review. The `recruiter` skill (plugin **recruiter-panel**) runs six recruiter personas in parallel (ATS screener, six-second skimmer, technical recruiter, hiring manager, agency recruiter and skeptic), scores the resume, and gives an Accept, Maybe or Reject verdict. It writes `resume-review.md` with the fixes ranked by how many recruiters raised them, plus 5–10 likely interview questions from a behavioral, technical and bar-raiser interviewer. Afterwards you can ask for a rebuild guide and a rewritten draft that uses only facts from your resume, with `[?]` where a number is missing. Your data stays in a local `.resume-review/` folder that you can delete. Set `roles.recruiter` (model and effort) in `.agent-team/config.json` to choose the model; otherwise your tool's default is used.
 
 ```
 review my resume at ~/cv.pdf for this job: <paste the job description>
@@ -194,6 +204,8 @@ Every agent is a person at a desk, and the main agent sits at the center desk. E
 ## Contributing
 
 Issues and pull requests are welcome, especially platform notes for more AI tools. If you find this useful, a ⭐ helps other people find it.
+
+Shared files (`roles/researcher.md` and the platform files) are edited under `plugins/ai-dev-team/skills/agent-team/`; run `scripts/sync-shared.sh` to copy them into the other plugins, and `scripts/sync-shared.sh --check` to verify.
 
 ## License
 

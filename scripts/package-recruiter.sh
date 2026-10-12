@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 ROOT="$PWD"
 
-SKILL_DIR="$ROOT/plugins/ai-dev-team/skills/recruiter"
+SKILL_DIR="$ROOT/plugins/recruiter-panel/skills/recruiter"
 PACK_DIR="$ROOT/packaging/recruiter-gpt-gem"
 DIST="$ROOT/dist"
 SKILL_ZIP="$DIST/recruiter-skill.zip"

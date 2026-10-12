@@ -5,7 +5,7 @@
 #                              OpenCode, GitHub Copilot and other Agent Skills tools
 #   ./install.sh --project     ./.agents/skills in the current project instead
 #   ./install.sh --dir PATH    any other skills folder (e.g. ~/.kiro/skills)
-#   ./install.sh --claude      also install the Claude Code plugin (needs the claude CLI)
+#   ./install.sh --claude      also install the three Claude Code plugins (needs the claude CLI)
 #   ./install.sh --link        symlink instead of copying (for development)
 #   ./install.sh --uninstall   remove them (use the same location flags)
 #
@@ -15,9 +15,18 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/111vandit111/ai-dev-team"
-# The research and recruiter skills point at ../agent-team, so all three are always installed together.
+# Each skill is self-contained; all three are still installed together.
 SKILLS="agent-team research recruiter"
-SKILLS_PATH="plugins/ai-dev-team/skills"
+
+# plugin_of <skill>: the plugin folder that holds the skill
+plugin_of() {
+  case "$1" in
+    agent-team) echo ai-dev-team ;;
+    research) echo research-team ;;
+    recruiter) echo recruiter-panel ;;
+    *) echo "install.sh: unknown skill $1" >&2; exit 1 ;;
+  esac
+}
 
 target="$HOME/.agents/skills"
 link=0
@@ -55,15 +64,17 @@ if [ "$uninstall" = 1 ]; then
     fi
   done
   if [ "$claude" = 1 ] && command -v claude >/dev/null 2>&1; then
-    claude plugin uninstall ai-dev-team@ai-dev-team || true
+    for skill in $SKILLS; do
+      claude plugin uninstall "$(plugin_of "$skill")@ai-dev-team" || true
+    done
   fi
   exit "$rc"
 fi
 
 # Use the copy next to this script when there is one; otherwise fetch the repository.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
-if [ -n "$script_dir" ] && [ -f "$script_dir/$SKILLS_PATH/agent-team/SKILL.md" ]; then
-  src_root="$script_dir/$SKILLS_PATH"
+if [ -n "$script_dir" ] && [ -f "$script_dir/plugins/ai-dev-team/skills/agent-team/SKILL.md" ]; then
+  src_root="$script_dir"
 else
   home="${AI_DEV_TEAM_HOME:-$HOME/.ai-dev-team}"
   command -v git >/dev/null 2>&1 || { echo "install.sh: git is required" >&2; exit 1; }
@@ -72,13 +83,14 @@ else
   else
     git clone --depth 1 --quiet "$REPO_URL" "$home"
   fi
-  src_root="$home/$SKILLS_PATH"
+  src_root="$home"
 fi
 
 # Check everything first so we never leave a half install.
 for skill in $SKILLS; do
   dest="$target/$skill"
-  [ -f "$src_root/$skill/SKILL.md" ] || { echo "install.sh: $src_root/$skill/SKILL.md not found" >&2; exit 1; }
+  src="$src_root/plugins/$(plugin_of "$skill")/skills/$skill"
+  [ -f "$src/SKILL.md" ] || { echo "install.sh: $src/SKILL.md not found" >&2; exit 1; }
   if [ -e "$dest" ] || [ -L "$dest" ]; then
     is_ours "$dest" "$skill" || { echo "install.sh: $dest exists and isn't $skill; left alone" >&2; exit 1; }
   fi
@@ -86,7 +98,7 @@ done
 
 mkdir -p "$target"
 for skill in $SKILLS; do
-  src="$src_root/$skill"
+  src="$src_root/plugins/$(plugin_of "$skill")/skills/$skill"
   dest="$target/$skill"
   if [ -e "$dest" ] || [ -L "$dest" ]; then
     rm -rf "$dest"
@@ -113,9 +125,11 @@ done
 if [ "$claude" = 1 ]; then
   command -v claude >/dev/null 2>&1 || { echo "install.sh: the claude CLI isn't installed" >&2; exit 1; }
   claude plugin marketplace add 111vandit111/ai-dev-team
-  claude plugin install ai-dev-team@ai-dev-team
+  for skill in $SKILLS; do
+    claude plugin install "$(plugin_of "$skill")@ai-dev-team"
+  done
 elif command -v claude >/dev/null 2>&1; then
-  echo "Claude Code found: add --claude to also install the plugin (effort-level workers, live office pane, git-write block)."
+  echo "Claude Code found: add --claude to also install the plugins (effort-level workers, live office pane, git-write block)."
 fi
 
 command -v graphify >/dev/null 2>&1 || echo "Next: install graphify (pip install graphifyy); the team needs a knowledge graph of your project."

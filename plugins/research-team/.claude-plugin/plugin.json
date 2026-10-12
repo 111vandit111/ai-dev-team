@@ -1,0 +1,26 @@
+{
+  "name": "research-team",
+  "version": "0.12.0",
+  "description": "Sourced, cross-checked web research for any AI coding agent: parallel researcher sub-agents gather evidence, read-only, every claim cited",
+  "author": {
+    "name": "111vandit111",
+    "email": "vanditkala@gmail.com"
+  },
+  "homepage": "https://github.com/111vandit111/ai-dev-team",
+  "repository": "https://github.com/111vandit111/ai-dev-team",
+  "license": "MIT",
+  "keywords": [
+    "agent-skills",
+    "research",
+    "web-research",
+    "best-practice",
+    "sources",
+    "comparison",
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "cursor",
+    "opencode",
+    "github-copilot"
+  ]
+}

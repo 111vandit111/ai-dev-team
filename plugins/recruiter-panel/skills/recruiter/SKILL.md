@@ -16,7 +16,7 @@ You are the **orchestrator**. You turn a resume and a target job into a scored r
 If you cannot read the resume (no file reader and no text pasted), stop and tell the user: `BLOCKED: cannot read the resume`.
 
 ## 1. Your tool
-Read `<skills folder>/agent-team/references/platforms/<tool>.md` once: `claude-code`, `codex`, `gemini-cli`, `cursor`, `opencode`, `copilot`, or `other`. `<skills folder>` is the folder that holds this skill's folder. It says how your tool starts a sub-agent and how to ask the user. If `agent-team/` isn't installed next to this skill, skip the file and use your tool's own sub-agent and question features, if it has them.
+Read `<skills folder>/recruiter/references/platforms/<tool>.md` once: `claude-code`, `codex`, `gemini-cli`, `cursor`, `opencode`, `copilot`, or `other`. `<skills folder>` is the folder that holds this skill's folder. It says how your tool starts a sub-agent and how to ask the user. If the file isn't there, skip it and use your tool's own sub-agent and question features, if it has them.
 
 ## 2. Inputs
 - **Fresh start:** delete and recreate `.resume-review/recruiters/` and `.resume-review/interviewers/`, and delete `.resume-review/weak-spots.md`, so files from an earlier run are never scored.

@@ -1,0 +1,23 @@
+{
+  "name": "recruiter-panel",
+  "version": "0.12.0",
+  "description": "Resume review panel and interview prep for any AI coding agent: independent recruiter reviews, ATS-style scoring and mock interviewer",
+  "author": {
+    "name": "111vandit111",
+    "email": "vanditkala@gmail.com"
+  },
+  "homepage": "https://github.com/111vandit111/ai-dev-team",
+  "repository": "https://github.com/111vandit111/ai-dev-team",
+  "license": "MIT",
+  "keywords": [
+    "agent-skills",
+    "resume",
+    "recruiting",
+    "interview-prep",
+    "ats",
+    "career",
+    "cv",
+    "job-search",
+    "hiring"
+  ]
+}
