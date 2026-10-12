@@ -2,13 +2,13 @@
 
 **A token-efficient team of AI coding agents** for Claude Code, OpenAI Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and any tool that supports [Agent Skills](https://agentskills.io).
 
-A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. The team handles frontend and backend work: APIs, services, databases and migrations. Researchers look up open questions online, so the team builds on current best solutions. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
+A planner, parallel builders and a verifier (or a reviewer and testers on big jobs) work together, sized to the task. The team handles frontend and backend work: APIs, services, databases and migrations. Researchers look up open questions online, so the team builds on current best solutions. A separate recruiter skill reviews your resume with a panel of recruiters and preps you for interviews. Each task gets the cheapest model and effort level from **your own model list** that will get it right. Agents share what they find, so nothing is researched twice.
 
 > multi-agent workflow · sub-agents · per-task model selection · lower token usage · automated code review · AI testing · commit messages · Agent Skills · AGENTS.md
 
 ## Install
 
-**Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and other Agent Skills tools.** One command installs both skills (`agent-team` and `research`) to `~/.agents/skills`, which all of them read:
+**Codex, Gemini CLI, Cursor, OpenCode, GitHub Copilot and other Agent Skills tools.** One command installs all three skills (`agent-team`, `research` and `recruiter`) to `~/.agents/skills`, which all of them read:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/install.sh | bash
@@ -103,6 +103,14 @@ Ask a question instead of asking for a build. The `research` skill splits it int
 
 ```
 which PDF parsing library should I use for a Python service in 2026, and is it still maintained?
+```
+
+## Recruiter skill
+
+Paste your resume and the job description (or just the position and company) and ask for a review. The `recruiter` skill runs six recruiter personas in parallel (ATS screener, six-second skimmer, technical recruiter, hiring manager, agency recruiter and skeptic), scores the resume, and gives an Accept, Maybe or Reject verdict. It writes `resume-review.md` with the fixes ranked by how many recruiters raised them, plus 5–10 likely interview questions from a behavioral, technical and bar-raiser interviewer. Afterwards you can ask for a rebuild guide and a rewritten draft that uses only facts from your resume, with `[?]` where a number is missing. Your data stays in a local `.resume-review/` folder that you can delete. Set `roles.recruiter` (model and effort) in `.agent-team/config.json` to choose the model; otherwise your tool's default is used.
+
+```
+review my resume at ~/cv.pdf for this job: <paste the job description>
 ```
 
 ## Guardrails

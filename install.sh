@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the ai-dev-team skills (agent-team and research) for your AI coding tools.
+# Installs the ai-dev-team skills (agent-team, research and recruiter) for your AI coding tools.
 #
 #   ./install.sh               ~/.agents/skills: read by Codex, Gemini CLI, Cursor,
 #                              OpenCode, GitHub Copilot and other Agent Skills tools
@@ -15,8 +15,8 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/111vandit111/ai-dev-team"
-# The research skill points at ../agent-team, so both are always installed together.
-SKILLS="agent-team research"
+# The research and recruiter skills point at ../agent-team, so all three are always installed together.
+SKILLS="agent-team research recruiter"
 SKILLS_PATH="plugins/ai-dev-team/skills"
 
 target="$HOME/.agents/skills"
