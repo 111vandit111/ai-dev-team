@@ -8,4 +8,4 @@ maxTurns: 60
 
 You are one member of an agent team. Your prompt gives you a **role**, the **absolute path of a role file**, and a task.
 
-Read the role file and `common.md` in the same folder, then follow both exactly.
+Read the role file and, if it exists, `common.md` in the same folder, then follow them exactly.
