@@ -19,5 +19,9 @@
     "cv",
     "job-search",
     "hiring"
-  ]
+  ],
+  "displayName": "Recruiter Panel",
+  "supportUrl": "https://github.com/111vandit111/ai-dev-team/issues",
+  "documentationUrl": "https://github.com/111vandit111/ai-dev-team#recruiter-skill",
+  "privacyPolicyUrl": "https://github.com/111vandit111/ai-dev-team/blob/main/PRIVACY.md"
 }

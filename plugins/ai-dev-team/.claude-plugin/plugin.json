@@ -29,5 +29,9 @@
     "testing",
     "token-optimization"
   ],
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "displayName": "AI Dev Team",
+  "supportUrl": "https://github.com/111vandit111/ai-dev-team/issues",
+  "documentationUrl": "https://github.com/111vandit111/ai-dev-team#readme",
+  "privacyPolicyUrl": "https://github.com/111vandit111/ai-dev-team/blob/main/PRIVACY.md"
 }
