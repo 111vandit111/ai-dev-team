@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-team",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Multi-agent build pipeline, research skill and recruiter skill (resume review panel and interview prep) for any AI coding agent: per-task models from your own list, knowledge-graph context, sourced research, live office view",
   "author": {
     "name": "111vandit111",

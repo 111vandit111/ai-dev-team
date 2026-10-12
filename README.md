@@ -113,6 +113,20 @@ Paste your resume and the job description (or just the position and company) and
 review my resume at ~/cv.pdf for this job: <paste the job description>
 ```
 
+## Use the recruiter skill in chat apps
+
+The recruiter skill also runs in chat apps that have no shell or sub-agents. Download the file for your app from the [latest release](https://github.com/111vandit111/ai-dev-team/releases/latest), then upload it as below.
+
+| App | Download | Where to upload |
+|-----|----------|-----------------|
+| Claude app (Pro, Max, Team, Enterprise, with code execution on) | `recruiter-skill.zip` | Settings → Features/Capabilities → Upload skill |
+| ChatGPT Business, Enterprise, Edu, Healthcare | `recruiter-skill.zip` | Plugins → Skills → Create → Upload from your computer |
+| Custom GPT (any paid plan) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into Instructions, upload the 7 other files (`panel.md`, `scoring.md`, `report.md`, `rebuild.md`, `recruiter.md`, `interviewer.md`, `score.py`) as Knowledge, turn on Code Interpreter |
+| Gemini Enterprise | `recruiter-skill.zip` | Import it as a skill (an admin must enable skills) |
+| Gem (Gemini) | `recruiter-gpt-gem.zip` | Unzip `recruiter-gpt-gem.zip`, then paste `instructions.md` into the Gem's instructions and add the same 7 files as knowledge. Without code execution the model works out the score by hand |
+
+In a chat app the six recruiters and three interviewers run one after another in a single conversation, so a review is slower and uses one model. Rebuild the zips with `./scripts/package-recruiter.sh`.
+
 ## Guardrails
 
 - **Nothing gets committed.** An optional git guard makes git itself refuse commits and pushes while a run is active, whichever AI tool is running. The Claude Code plugin also blocks git writes with a hook.
