@@ -23,7 +23,9 @@ esac
 [ "$#" -le 1 ] || { echo "sync-shared.sh: too many arguments" >&2; exit 64; }
 
 # source<TAB>destination pairs
-PAIRS=("$SRC/roles/researcher.md|$RESEARCH/roles/researcher.md")
+PAIRS=("$SRC/roles/researcher.md|$RESEARCH/roles/researcher.md"
+       "$SRC/references/writing.md|$RESEARCH/references/writing.md"
+       "$SRC/references/writing.md|$RECRUITER/references/writing.md")
 for f in "$SRC"/references/platforms/*.md; do
   b="$(basename "$f")"
   PAIRS+=("$f|$RESEARCH/references/platforms/$b" "$f|$RECRUITER/references/platforms/$b")

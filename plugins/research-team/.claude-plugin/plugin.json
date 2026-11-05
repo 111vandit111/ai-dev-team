@@ -1,6 +1,6 @@
 {
   "name": "research-team",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Sourced, cross-checked web research for any AI coding agent: parallel researcher sub-agents gather evidence, read-only, every claim cited",
   "author": {
     "name": "111vandit111",

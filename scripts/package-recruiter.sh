@@ -20,7 +20,7 @@ MAX_DESCRIPTION=1024
 MAX_INSTRUCTIONS=8000
 
 # knowledge file -> path inside the skill folder
-KNOWLEDGE="references/panel.md references/scoring.md references/report.md references/rebuild.md references/latex.md roles/recruiter.md roles/interviewer.md scripts/score.py"
+KNOWLEDGE="references/panel.md references/scoring.md references/report.md references/rebuild.md references/latex.md references/writing.md roles/recruiter.md roles/interviewer.md scripts/score.py"
 
 fail() { echo "package-recruiter.sh: $*" >&2; exit 1; }
 

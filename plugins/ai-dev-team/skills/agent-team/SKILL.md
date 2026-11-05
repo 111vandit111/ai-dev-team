@@ -139,6 +139,8 @@ Delete `.agent-team/RUNNING`. Show the user the message and how to commit it the
 3. Escalate: the same model one effort level up, or the next stronger model once the effort is at the top. Include a summary of both attempts. If nothing stronger is allowed, stop and ask the user.
 
 ## Finish
+Read `references/writing.md` and run its gate on the report and the commit message before you show them.
+
 Report in 12 lines or fewer:
 - what was built, and the size
 - the sub-agents used, with tokens per agent where your tool reports them, and the total
