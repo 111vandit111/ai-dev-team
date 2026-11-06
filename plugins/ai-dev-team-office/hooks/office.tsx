@@ -36,7 +36,7 @@ const EMPTY: Office = {
   isRunning: false,
   frame: 0,
 }
-const office = atom({ plugin: 'ai-dev-team', key: 'office' } as const, EMPTY)
+const office = atom({ plugin: 'ai-dev-team-office', key: 'office' } as const, EMPTY)
 
 const BIG = {
   typingA: [' o   .----.', '/|\\_ |=== |', '/ \\  \'----\''],

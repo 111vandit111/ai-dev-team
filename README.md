@@ -25,7 +25,8 @@ curl -fsSL https://raw.githubusercontent.com/111vandit111/ai-dev-team/main/insta
 
 | Plugin | Skill | What it adds |
 |---|---|---|
-| `ai-dev-team` | `agent-team` | The build pipeline, plus effort-level workers, the live office pane and a git-write block |
+| `ai-dev-team` | `agent-team` | The build pipeline, plus effort-level workers (the in-Claude office pane and git guard are in the separate `ai-dev-team-office` plugin) |
+| `ai-dev-team-office` | none | Optional add-on, install from this repo only (not in the directory): office band and pane in Claude Code, plus a guard that blocks git commits during a run |
 | `research-team` | `research` | Sourced, cross-checked web research with parallel researchers (read-only) |
 | `recruiter-panel` | `recruiter` | Resume review panel and interview prep |
 

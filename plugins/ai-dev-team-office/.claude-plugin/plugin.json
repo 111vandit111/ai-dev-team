@@ -1,0 +1,14 @@
+{
+  "name": "ai-dev-team-office",
+  "version": "0.1.0",
+  "description": "Optional add-on for ai-dev-team: live agent office band and pane in Claude Code, plus a guard that blocks git writes during an agent-team run",
+  "author": {
+    "name": "111vandit111",
+    "email": "vanditkala@gmail.com"
+  },
+  "homepage": "https://github.com/111vandit111/ai-dev-team",
+  "repository": "https://github.com/111vandit111/ai-dev-team",
+  "license": "MIT",
+  "keywords": ["agent-team", "claude-code", "office"],
+  "types": "./types/index.d.ts"
+}

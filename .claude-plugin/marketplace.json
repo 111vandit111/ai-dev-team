@@ -20,6 +20,11 @@
       "name": "recruiter-panel",
       "source": "./plugins/recruiter-panel",
       "description": "Resume review panel and interview prep for any AI coding agent: independent recruiter reviews, ATS-style scoring and mock interviewer"
+    },
+    {
+      "name": "ai-dev-team-office",
+      "source": "./plugins/ai-dev-team-office",
+      "description": "Optional add-on for ai-dev-team: live agent office in Claude Code and a git-write guard during runs (not in the plugin directory)"
     }
   ]
 }

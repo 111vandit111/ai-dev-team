@@ -32,6 +32,6 @@ export type Office = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'ai-dev-team': { office: Office }
+    'ai-dev-team-office': { office: Office }
   }
 }

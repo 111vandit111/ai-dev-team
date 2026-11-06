@@ -70,12 +70,12 @@ async function finishedRun($, clock, world) {
 }
 
 const band = ($, viewport = MAIN_SCREEN, props = BAND) =>
-  $.ui.mount({ plugin: 'ai-dev-team', surface: 'terminal', component: 'AbovePrompt', props, viewport })
+  $.ui.mount({ plugin: 'ai-dev-team-office', surface: 'terminal', component: 'AbovePrompt', props, viewport })
 
 // Whether the side pane shows this text. The pane always shows the kept office.
 async function paneShows($, text: RegExp) {
   const pane = await $.ui.mount({
-    plugin: 'ai-dev-team',
+    plugin: 'ai-dev-team-office',
     surface: 'terminal',
     component: 'Pane',
     requestId: 'agent-office',
@@ -327,7 +327,7 @@ test('the side pane draws big desks on every surface', async ($, on) => {
   await spawn($)
   await clock.advance(TICK)
   for (const surface of ['terminal', 'desktop'] as const) {
-    const pane = await $.ui.mount({ plugin: 'ai-dev-team', surface, component: 'Pane', requestId: 'agent-office', props: PANE })
+    const pane = await $.ui.mount({ plugin: 'ai-dev-team-office', surface, component: 'Pane', requestId: 'agent-office', props: PANE })
     expect(await pane.find({ text: /sonnet · medium/ })).toBeDefined()
     await pane.unmount()
   }
